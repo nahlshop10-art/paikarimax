@@ -1,4 +1,4 @@
-import { getVisualIndexStatus, indexSingleProduct } from './_visual_indexer';
+import { getVisualIndexStatus, indexSingleProduct, deleteProductVectors } from './_visual_indexer';
 
 export async function onRequestGet(context: any) {
   const { env } = context;
@@ -20,6 +20,19 @@ export async function onRequestPost(context: any) {
   try {
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'index_missing';
+
+    if (action === 'delete_product' || action === 'delete_vectors') {
+      const ids = Array.isArray(body.ids) ? body.ids : (body.productId || body.id ? [body.productId || body.id] : []);
+      if (ids.length > 0) {
+        await deleteProductVectors(env, ids);
+        return new Response(JSON.stringify({ success: true, deleted: ids }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify({ success: true, deleted: [] }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     if (action === 'status') {
       const status = await getVisualIndexStatus(env);

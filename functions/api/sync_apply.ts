@@ -1,3 +1,5 @@
+import { deleteProductVectors } from './_visual_indexer';
+
 export async function onRequestPost(context: any) {
   const { request, env } = context;
   
@@ -11,6 +13,9 @@ export async function onRequestPost(context: any) {
 
     // Handle deletes
     if (deletedIds && Array.isArray(deletedIds) && deletedIds.length > 0 && !isStockOnly) {
+        // Clean up vectors from Vectorize
+        await deleteProductVectors(env, deletedIds);
+
         for (let i = 0; i < deletedIds.length; i += 25) {
             const chunkIds = deletedIds.slice(i, i + 25);
             const placeholders = chunkIds.map(() => '?').join(',');

@@ -35,25 +35,53 @@ export function bufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+export async function deleteProductVectors(env: any, productIds: string[]): Promise<void> {
+  if (!env.VECTORIZE || !Array.isArray(productIds) || productIds.length === 0) return;
+  const validIds = productIds.map(id => String(id).trim()).filter(Boolean);
+  if (validIds.length === 0) return;
+
+  for (let i = 0; i < validIds.length; i += 50) {
+    const chunk = validIds.slice(i, i + 50);
+    try {
+      await env.VECTORIZE.deleteByIds(chunk);
+    } catch (e) {
+      console.warn('[Vectorize] Failed to deleteByIds for chunk:', chunk, e);
+    }
+  }
+}
+
 export async function indexSingleProduct(
   env: any,
-  product: { id: string; image?: string; title?: string }
+  product: { id: string; image?: string; title?: string; isVisible?: boolean; isDeleted?: boolean }
 ): Promise<{ success: boolean; id: string; error?: string }> {
   if (!product || !product.id) return { success: false, id: '', error: 'Missing product ID' };
+  const prodId = String(product.id).trim();
+
+  // If product is soft-deleted or hidden, remove its vector from Vectorize immediately
+  if (product.isDeleted || product.isVisible === false) {
+    await deleteProductVectors(env, [prodId]);
+    return { success: true, id: prodId };
+  }
 
   let rawImage = product.image;
+  let isHiddenOrDeleted = false;
   if (!rawImage || typeof rawImage !== 'string' || !rawImage.trim()) {
     try {
-      const row = await env.DB.prepare('SELECT data FROM products WHERE id = ?').bind(product.id).first();
+      const row = await env.DB.prepare('SELECT data FROM products WHERE id = ?').bind(prodId).first();
       if (row && row.data) {
         const parsed = JSON.parse(row.data as string);
+        if (parsed.isDeleted || parsed.isVisible === false) {
+          isHiddenOrDeleted = true;
+        }
         rawImage = parsed.image || (Array.isArray(parsed.images) ? parsed.images[0] : '');
       }
     } catch (e) {}
   }
 
-  if (!rawImage || typeof rawImage !== 'string' || !rawImage.trim()) {
-    return { success: false, id: product.id, error: 'Product has no valid image' };
+  if (isHiddenOrDeleted || !rawImage || typeof rawImage !== 'string' || !rawImage.trim()) {
+    // Clean up any existing vector if product has no image or is deleted/hidden
+    await deleteProductVectors(env, [prodId]);
+    return { success: true, id: prodId, error: 'Product has no valid image or is hidden, vector removed' };
   }
 
   const apiKeys = await getGeminiApiKeys(env);

@@ -1179,8 +1179,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       title: 'Delete Product',
       message: 'Are you sure you want to delete this product? This action cannot be undone.',
       onConfirm: () => {
-        const productToDel = products.find(p => p.id === id);
-        setProducts(products.filter(p => p.id !== id));
+        const productToDel = products.find(p => String(p.id) === String(id)) || ({ id } as Product);
+        setProducts(products.filter(p => String(p.id) !== String(id)));
         if (productToDel) {
           cloudStore.deleteProducts([productToDel]).catch(console.error);
         }

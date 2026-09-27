@@ -1,5 +1,5 @@
 import { getOriginBase } from './_domain';
-import { indexSingleProduct } from './_visual_indexer';
+import { indexSingleProduct, deleteProductVectors } from './_visual_indexer';
 export async function onRequestPost(context: any) {
   const { request, env } = context;
   try {
@@ -13,6 +13,9 @@ export async function onRequestPost(context: any) {
     if (action === 'delete') {
       const ids = items.map((i: any) => String(i.id || i)).filter(Boolean);
       if (ids.length > 0) {
+        // 1. Guaranteed immediate Vectorize vector deletion for deleted products
+        await deleteProductVectors(env, ids);
+
         const r2KeysToDelete: string[] = [];
         let softDeletedCount = 0;
         let hardDeletedCount = 0;

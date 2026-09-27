@@ -53,19 +53,18 @@ export async function onRequestPost(context: any) {
           // 2. Incomplete orders
           let isUsedInDashboard = false;
 
-          const searchPatternId = `%"id":"${id}"%`;
+          const searchPatternId = `"id":"${id}"`;
           const orderMatch = await env.DB.prepare(
-            `SELECT id FROM orders WHERE (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND data LIKE ? LIMIT 1`
+            `SELECT id FROM orders WHERE (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND instr(data, ?) > 0 LIMIT 1`
           ).bind(searchPatternId).first();
 
           if (orderMatch) {
             isUsedInDashboard = true;
           } else {
             for (const key of productKeys) {
-              const keyPattern = `%${key}%`;
               const oKeyMatch = await env.DB.prepare(
-                `SELECT id FROM orders WHERE (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND data LIKE ? LIMIT 1`
-              ).bind(keyPattern).first();
+                `SELECT id FROM orders WHERE (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND instr(data, ?) > 0 LIMIT 1`
+              ).bind(key).first();
               if (oKeyMatch) {
                 isUsedInDashboard = true;
                 break;
@@ -88,13 +87,12 @@ export async function onRequestPost(context: any) {
 
             // Check if keys are used in any other product or setting before deleting from R2
             for (const key of productKeys) {
-              const keyPattern = `%${key}%`;
               const otherProd = await env.DB.prepare(
-                'SELECT id FROM products WHERE id != ? AND data LIKE ? LIMIT 1'
-              ).bind(id, keyPattern).first();
+                'SELECT id FROM products WHERE id != ? AND instr(data, ?) > 0 LIMIT 1'
+              ).bind(id, key).first();
               const settingsMatch = await env.DB.prepare(
-                'SELECT key FROM settings WHERE value LIKE ? LIMIT 1'
-              ).bind(keyPattern).first();
+                'SELECT key FROM settings WHERE instr(value, ?) > 0 LIMIT 1'
+              ).bind(key).first();
 
               if (!otherProd && !settingsMatch) {
                 r2KeysToDelete.push(key);

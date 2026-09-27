@@ -17,11 +17,10 @@ export async function onRequestPost({ request, env }: any) {
       if (match && match[1]) {
         const key = match[1];
         
-        // Search in D1 using LIKE to avoid memory bloat
-        const searchPattern = `%${key}%`;
-        const productsMatch = await env.DB.prepare('SELECT id FROM products WHERE data LIKE ? LIMIT 1').bind(searchPattern).first();
-        const ordersMatch = await env.DB.prepare('SELECT id FROM orders WHERE data LIKE ? LIMIT 1').bind(searchPattern).first();
-        const settingsMatch = await env.DB.prepare('SELECT key FROM settings WHERE value LIKE ? LIMIT 1').bind(searchPattern).first();
+        // Search in D1 using instr for fast, unburstable search
+        const productsMatch = await env.DB.prepare('SELECT id FROM products WHERE instr(data, ?) > 0 LIMIT 1').bind(key).first();
+        const ordersMatch = await env.DB.prepare('SELECT id FROM orders WHERE instr(data, ?) > 0 LIMIT 1').bind(key).first();
+        const settingsMatch = await env.DB.prepare('SELECT key FROM settings WHERE instr(value, ?) > 0 LIMIT 1').bind(key).first();
         
         if (!productsMatch && !ordersMatch && !settingsMatch) {
           // If not found in DB, safe to delete!

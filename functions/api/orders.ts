@@ -66,17 +66,16 @@ export async function onRequestPost(context: any) {
 
           if (!isUsedElsewhere) {
             for (const key of orderKeys) {
-              const keyPattern = `%${key}%`;
               const prodWithImg = await env.DB.prepare(
-                "SELECT id FROM products WHERE (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND data LIKE ? LIMIT 1"
-              ).bind(keyPattern).first();
+                "SELECT id FROM products WHERE (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND instr(data, ?) > 0 LIMIT 1"
+              ).bind(key).first();
               if (prodWithImg) {
                 isUsedElsewhere = true;
                 break;
               }
               const otherOrder = await env.DB.prepare(
-                "SELECT id FROM orders WHERE id != ? AND (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND data LIKE ? LIMIT 1"
-              ).bind(id, keyPattern).first();
+                "SELECT id FROM orders WHERE id != ? AND (json_extract(data, '$.isDeleted') IS NULL OR json_extract(data, '$.isDeleted') != 1) AND instr(data, ?) > 0 LIMIT 1"
+              ).bind(id, key).first();
               if (otherOrder) {
                 isUsedElsewhere = true;
                 break;
@@ -98,10 +97,9 @@ export async function onRequestPost(context: any) {
 
             // Collect orphaned keys for R2 deletion
             for (const key of orderKeys) {
-              const keyPattern = `%${key}%`;
-              const anyProd = await env.DB.prepare('SELECT id FROM products WHERE data LIKE ? LIMIT 1').bind(keyPattern).first();
-              const anyOrder = await env.DB.prepare('SELECT id FROM orders WHERE id != ? AND data LIKE ? LIMIT 1').bind(id, keyPattern).first();
-              const anySetting = await env.DB.prepare('SELECT key FROM settings WHERE value LIKE ? LIMIT 1').bind(keyPattern).first();
+              const anyProd = await env.DB.prepare('SELECT id FROM products WHERE instr(data, ?) > 0 LIMIT 1').bind(key).first();
+              const anyOrder = await env.DB.prepare('SELECT id FROM orders WHERE id != ? AND instr(data, ?) > 0 LIMIT 1').bind(id, key).first();
+              const anySetting = await env.DB.prepare('SELECT key FROM settings WHERE instr(value, ?) > 0 LIMIT 1').bind(key).first();
 
               if (!anyProd && !anyOrder && !anySetting) {
                 r2KeysToDelete.push(key);

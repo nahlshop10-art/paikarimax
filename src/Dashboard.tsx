@@ -1178,14 +1178,19 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setConfirmAction({
       title: 'Delete Product',
       message: 'Are you sure you want to delete this product? This action cannot be undone.',
-      onConfirm: () => {
+      onConfirm: async () => {
         const productToDel = products.find(p => String(p.id) === String(id)) || ({ id } as Product);
-        setProducts(products.filter(p => String(p.id) !== String(id)));
-        if (productToDel) {
-          cloudStore.deleteProducts([productToDel]).catch(console.error);
-        }
         setEditingProduct(null);
         setConfirmAction(null);
+        try {
+          if (productToDel) {
+            await cloudStore.deleteProducts([productToDel]);
+          }
+          setProducts(prev => prev.filter(p => String(p.id) !== String(id)));
+        } catch (error: any) {
+          console.error('Failed to delete product', error);
+          alert(error?.message || 'Failed to delete product. Please check your admin login session.');
+        }
       }
     });
   };

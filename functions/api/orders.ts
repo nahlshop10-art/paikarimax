@@ -42,7 +42,9 @@ export async function onRequestPost(context: any) {
               item.product?.thumbnail
             ];
             for (const u of urls) {
-              const m = String(u || '').match(/(uploads\/.*)$/);
+              if (!u || typeof u !== 'string') continue;
+              const clean = u.split('?')[0].split('#')[0].trim();
+              const m = clean.match(/(uploads\/[^\s]+)$/);
               if (m) orderKeys.push(m[1]);
             }
           }
@@ -108,12 +110,16 @@ export async function onRequestPost(context: any) {
           }
         }
 
-        // Option 1 Async Execution: clean up orphaned R2 keys via context.waitUntil
-        if (context.waitUntil && r2KeysToDelete.length > 0 && env.BUCKET) {
+        // Reliably batch delete orphaned R2 image keys
+        if (r2KeysToDelete.length > 0 && env.BUCKET) {
           const uniqueKeys = Array.from(new Set(r2KeysToDelete));
-          context.waitUntil(
-            Promise.all(uniqueKeys.map((k: string) => env.BUCKET.delete(k).catch(() => {})))
-          );
+          try {
+            await env.BUCKET.delete(uniqueKeys);
+            console.log(`[R2] Successfully deleted ${uniqueKeys.length} orphaned image(s) from orders:`, uniqueKeys);
+          } catch (r2Err) {
+            console.error('[R2] Batch delete failed in orders, attempting fallback individual delete:', r2Err);
+            await Promise.allSettled(uniqueKeys.map((k: string) => env.BUCKET.delete(k)));
+          }
         }
 
         return Response.json({ success: true, deleted: ids.length, softDeleted: softDeletedCount, hardDeleted: hardDeletedCount });

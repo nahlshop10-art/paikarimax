@@ -37,12 +37,16 @@ export async function onRequestPost(context: any) {
           if (Array.isArray(prodData.colors)) prodData.colors.forEach((c: any) => c?.image && urls.push(c.image));
           if (Array.isArray(prodData.variants)) prodData.variants.forEach((v: any) => v?.image && urls.push(v.image));
 
-          const productKeys = urls
-            .map(u => {
-              const m = String(u || '').match(/(uploads\/.*)$/);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean) as string[];
+          const extractKey = (u: any): string | null => {
+            if (!u || typeof u !== 'string') return null;
+            const clean = u.split('?')[0].split('#')[0].trim();
+            const match = clean.match(/(uploads\/[^\s]+)$/);
+            return match ? match[1] : null;
+          };
+
+          const productKeys = Array.from(new Set(
+            urls.map(extractKey).filter(Boolean) as string[]
+          ));
 
           // Check if product ID or any of its image keys are actively referenced in:
           // 1. Active standard orders (orders where isDeleted is not 1)
@@ -133,12 +137,16 @@ export async function onRequestPost(context: any) {
           }
         } catch (e) {}
 
-        // Option 1 Async Execution: clean up orphaned R2 keys via context.waitUntil
-        if (context.waitUntil && r2KeysToDelete.length > 0 && env.BUCKET) {
+        // Reliably batch delete orphaned R2 image keys
+        if (r2KeysToDelete.length > 0 && env.BUCKET) {
           const uniqueKeys = Array.from(new Set(r2KeysToDelete));
-          context.waitUntil(
-            Promise.all(uniqueKeys.map((k: string) => env.BUCKET.delete(k).catch(() => {})))
-          );
+          try {
+            await env.BUCKET.delete(uniqueKeys);
+            console.log(`[R2] Successfully deleted ${uniqueKeys.length} orphaned image(s):`, uniqueKeys);
+          } catch (r2Err) {
+            console.error('[R2] Batch delete failed, attempting fallback individual delete:', r2Err);
+            await Promise.allSettled(uniqueKeys.map((k: string) => env.BUCKET.delete(k)));
+          }
         }
 
         // Invalidate public_state cache

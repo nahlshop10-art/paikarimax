@@ -12,7 +12,8 @@ export async function onRequestPost({ request, env }: any) {
       if (!url || typeof url !== 'string') continue;
       
       // Look for the URL exactly in the JSON string
-      const match = url.match(/(uploads\/.*)$/);
+      const clean = url.split('?')[0].split('#')[0].trim();
+      const match = clean.match(/(uploads\/[^\s]+)$/);
       if (match && match[1]) {
         const key = match[1];
         

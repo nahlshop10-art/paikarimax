@@ -4563,31 +4563,101 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
               </button>
             )}
           </div>
-          <div>
+          <div className="space-y-4">
             {draftSettings.logoUrl ? (
-              <div className="relative w-48 sm:w-56 h-20 rounded-xl overflow-hidden border border-[var(--dash-border)] bg-slate-900/60 flex items-center justify-center p-3 group shadow-inner">
-                {/* Subtle checkerboard pattern to ensure transparent WebP/PNG/SVG logos are clearly visible */}
-                <div 
-                  className="absolute inset-0 opacity-15 pointer-events-none"
-                  style={{
-                    backgroundImage: 'linear-gradient(45deg, #888 25%, transparent 25%), linear-gradient(-45deg, #888 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #888 75%), linear-gradient(-45deg, transparent 75%, #888 75%)',
-                    backgroundSize: '16px 16px',
-                    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px'
-                  }}
-                />
-                <img 
-                  src={draftSettings.logoUrl} 
-                  alt="Logo" 
-                  className="max-w-full max-h-full object-contain relative z-10 transition-transform group-hover:scale-105" 
-                />
-                <button 
-                  type="button"
-                  onClick={() => setDraftSettings(prev => ({ ...prev, logoUrl: undefined }))}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-20 cursor-pointer transition-transform hover:scale-110"
-                  title="Remove Logo"
-                >
-                  <X size={12} />
-                </button>
+              <div className="space-y-4">
+                <div className="relative w-full max-w-sm min-h-[90px] rounded-xl overflow-hidden border border-[var(--dash-border)] bg-slate-900/70 flex items-center justify-center p-4 group shadow-inner">
+                  {/* Subtle checkerboard pattern to ensure transparent WebP/PNG/SVG logos are clearly visible */}
+                  <div 
+                    className="absolute inset-0 opacity-15 pointer-events-none"
+                    style={{
+                      backgroundImage: 'linear-gradient(45deg, #888 25%, transparent 25%), linear-gradient(-45deg, #888 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #888 75%), linear-gradient(-45deg, transparent 75%, #888 75%)',
+                      backgroundSize: '16px 16px',
+                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px'
+                    }}
+                  />
+                  <img 
+                    src={draftSettings.logoUrl} 
+                    alt="Logo" 
+                    style={{ height: `${draftSettings.logoHeight || 46}px` }}
+                    className="max-w-full object-contain relative z-10 transition-all" 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setDraftSettings(prev => ({ ...prev, logoUrl: undefined }))}
+                    className="absolute top-2 right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-20 cursor-pointer transition-transform hover:scale-110"
+                    title="Remove Logo"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+
+                {/* Logo Height Controller */}
+                <div className="pt-2 border-t border-[var(--dash-border)]/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                        Header Logo Size
+                      </label>
+                      <p className="text-[11px] text-slate-400">
+                        Adjust logo display height (recommended: 46px - 64px for monogram/square emblems)
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-lg border border-[var(--dash-border)]">
+                      <input 
+                        type="number" 
+                        min="28" 
+                        max="84" 
+                        value={draftSettings.logoHeight || 46} 
+                        onChange={(e) => setDraftSettings(prev => ({ 
+                          ...prev, 
+                          logoHeight: Math.min(84, Math.max(28, Number(e.target.value) || 46)) 
+                        }))}
+                        className="w-10 bg-transparent text-right font-mono text-xs text-indigo-400 font-bold outline-none"
+                      />
+                      <span className="text-[11px] text-slate-400">px</span>
+                    </div>
+                  </div>
+
+                  {/* Range Slider */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-mono text-slate-400">28px</span>
+                    <input 
+                      type="range" 
+                      min="28" 
+                      max="84" 
+                      step="2"
+                      value={draftSettings.logoHeight || 46} 
+                      onChange={(e) => setDraftSettings(prev => ({ ...prev, logoHeight: Number(e.target.value) }))}
+                      className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                    <span className="text-[11px] font-mono text-slate-400">84px</span>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    {[
+                      { label: 'Compact', size: 34 },
+                      { label: 'Standard', size: 46 },
+                      { label: 'Prominent', size: 58 },
+                      { label: 'Bold', size: 72 }
+                    ].map(preset => (
+                      <button
+                        key={preset.size}
+                        type="button"
+                        onClick={() => setDraftSettings(prev => ({ ...prev, logoHeight: preset.size }))}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border",
+                          (draftSettings.logoHeight || 46) === preset.size
+                            ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                            : "bg-white/5 text-slate-400 border-white/10 hover:text-white hover:bg-white/10"
+                        )}
+                      >
+                        {preset.label} ({preset.size}px)
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <div 

@@ -275,6 +275,7 @@ export interface WebsiteSettings {
   deliveryCharges: DeliveryCharge[];
   productImageHover?: boolean;
   logoUrl?: string;
+  logoHeight?: number;
   receiptQrCodeUrl?: string;
   shopPhone?: string;
   autoLogoutDays?: number;

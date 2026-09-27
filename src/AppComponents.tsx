@@ -159,7 +159,12 @@ export function Sidebar({ onClose, activeCategory, setActiveCategory, categories
       <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="w-4/5 max-w-sm bg-[var(--theme-white)] h-full flex flex-col">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           {websiteSettings?.logoUrl ? (
-            <img src={websiteSettings.logoUrl} alt="Logo" className="h-8 object-contain" />
+            <img 
+              src={websiteSettings.logoUrl} 
+              alt="Logo" 
+              style={{ height: `${Math.min(websiteSettings.logoHeight || 42, 50)}px` }}
+              className="max-w-[180px] w-auto object-contain" 
+            />
           ) : (
             <div className="h-8"></div>
           )}
@@ -1504,9 +1509,14 @@ export function CheckoutModal({ onClose, cart, orders, onPlaceOrder, websiteSett
               <ArrowLeft size={24} />
             </button>
           </div>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
             {websiteSettings?.logoUrl ? (
-              <img src={websiteSettings.logoUrl} alt="Logo" className="h-8 object-contain pointer-events-auto" />
+              <img 
+                src={websiteSettings.logoUrl} 
+                alt="Logo" 
+                style={{ height: `${Math.min(websiteSettings.logoHeight || 40, 48)}px` }}
+                className="max-w-[180px] w-auto object-contain pointer-events-auto" 
+              />
             ) : (
               <div className="h-8 pointer-events-auto"></div>
             )}

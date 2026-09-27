@@ -274,10 +274,19 @@ export default function ProductDetails({
     [similar.length, visibleSimilarLimit]
   );
 
+  const currentLogoHeight = websiteSettings?.logoHeight || 46;
+  const headerMinHeight = Math.max(56, currentLogoHeight + 14);
+
   return (
-    <div className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full pt-16 z-40">
+    <div 
+      style={{ paddingTop: `${headerMinHeight + 6}px` }}
+      className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full z-40"
+    >
       {/* Header */}
-      <header className="flex items-center justify-between px-2 md:px-4 py-3 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all">
+      <header 
+        style={{ minHeight: `${headerMinHeight}px` }}
+        className="flex items-center justify-between px-2 md:px-4 py-2 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all"
+      >
         <div className="flex items-center gap-2 z-10">
           <button onClick={onBack} className="p-2 -ml-2 text-[var(--theme-black)]">
             <ArrowLeft size={24} />
@@ -309,9 +318,14 @@ export default function ProductDetails({
           </div>
         </div>
         
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-20">
           {websiteSettings?.logoUrl ? (
-            <img src={websiteSettings.logoUrl} alt="Logo" className="h-8 md:h-9 object-contain pointer-events-auto" />
+            <img 
+              src={websiteSettings.logoUrl} 
+              alt="Logo" 
+              style={{ height: `${currentLogoHeight}px` }}
+              className="max-w-[200px] sm:max-w-[320px] w-auto object-contain pointer-events-auto transition-all" 
+            />
           ) : (
             <div className="h-8 pointer-events-auto"></div>
           )}

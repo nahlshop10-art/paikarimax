@@ -1358,6 +1358,9 @@ export default function App() {
     '--btn-add-radius': websiteSettings.actionButtons?.addToCart?.borderRadius || '9999px',
   } as React.CSSProperties;
 
+  const currentLogoHeight = websiteSettings?.logoHeight || 46;
+  const headerMinHeight = Math.max(56, currentLogoHeight + 14);
+
   return (
     <div style={themeVars} className="contents main-storefront">
       {!isDashboardOpen && (
@@ -1410,9 +1413,15 @@ export default function App() {
               onProductSelect={(p) => setSelectedProductForDetails(p)}
             />
           ) : (
-            <div className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full pt-16">
+            <div 
+              style={{ paddingTop: `${headerMinHeight + 6}px` }}
+              className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full"
+            >
               {/* Header */}
-              <header className="flex items-center justify-between px-2 md:px-4 py-3 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all">
+              <header 
+                style={{ minHeight: `${headerMinHeight}px` }}
+                className="flex items-center justify-between px-2 md:px-4 py-2 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all"
+              >
                 <div className="flex items-center gap-2 z-10">
                   <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-[var(--theme-black)]">
                     <Menu size={24} />
@@ -1441,12 +1450,13 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-14 sm:px-20">
                   {websiteSettings.logoUrl ? (
                     <img 
                       src={websiteSettings.logoUrl} 
                       alt={websiteSettings.storeName || websiteSettings.shopName || "Logo"} 
-                      className="h-8 md:h-9 object-contain cursor-pointer select-none pointer-events-auto"
+                      style={{ height: `${currentLogoHeight}px` }}
+                      className="max-w-[200px] sm:max-w-[320px] w-auto object-contain cursor-pointer select-none pointer-events-auto transition-all"
                       onClick={handleLogoClick}
                       onPointerDown={handleLogoPointerDown}
                       onPointerUp={handleLogoPointerUp}

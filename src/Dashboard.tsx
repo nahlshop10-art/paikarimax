@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Search, Home, Filter, Edit, Plus, LayoutDashboard, Package, 
+  Search, Home, Filter, Edit, Plus, Minus, LayoutDashboard, Package, 
   ShoppingCart, Settings, ChevronLeft, Save, Upload, X, Eye, EyeOff,
   Trash2, Move, RefreshCcw, ChevronDown, ChevronUp, Image as ImageIcon,
   LayoutGrid, Activity, Check, SlidersHorizontal, Calendar as CalendarIcon,
@@ -4593,35 +4593,70 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
                 </div>
 
                 {/* Logo Height Controller */}
-                <div className="pt-2 border-t border-[var(--dash-border)]/50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                        Header Logo Size
-                      </label>
-                      <p className="text-[11px] text-slate-400">
-                        Adjust logo display height (recommended: 46px - 64px for monogram/square emblems)
+                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-900/60 border border-[var(--dash-border)]/80 space-y-3.5 shadow-sm">
+                  {/* Header Row: Title & Stepper Badge */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <SlidersHorizontal size={14} className="text-indigo-400 shrink-0" />
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                          Header Logo Size
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-normal">
+                        Recommended: <span className="text-slate-300 font-medium">46px – 64px</span> for square & monogram emblems
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-lg border border-[var(--dash-border)]">
-                      <input 
-                        type="number" 
-                        min="28" 
-                        max="84" 
-                        value={draftSettings.logoHeight || 46} 
-                        onChange={(e) => setDraftSettings(prev => ({ 
+
+                    {/* Numeric Stepper Box */}
+                    <div className="flex items-center bg-slate-950/80 border border-slate-700/60 rounded-xl p-1 shadow-inner shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setDraftSettings(prev => ({ 
                           ...prev, 
-                          logoHeight: Math.min(84, Math.max(28, Number(e.target.value) || 46)) 
+                          logoHeight: Math.max(28, (prev.logoHeight || 46) - 2) 
                         }))}
-                        className="w-10 bg-transparent text-right font-mono text-xs text-indigo-400 font-bold outline-none"
-                      />
-                      <span className="text-[11px] text-slate-400">px</span>
+                        className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors active:scale-90 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={(draftSettings.logoHeight || 46) <= 28}
+                        title="Decrease by 2px"
+                        aria-label="Decrease size"
+                      >
+                        <Minus size={13} strokeWidth={2.5} />
+                      </button>
+                      
+                      <div className="flex items-center px-1.5 font-mono text-xs font-bold text-indigo-400">
+                        <input 
+                          type="number" 
+                          min="28" 
+                          max="84" 
+                          value={draftSettings.logoHeight || 46} 
+                          onChange={(e) => setDraftSettings(prev => ({ 
+                            ...prev, 
+                            logoHeight: Math.min(84, Math.max(28, Number(e.target.value) || 46)) 
+                          }))}
+                          className="w-8 bg-transparent text-center font-mono font-bold text-indigo-400 outline-none p-0 cursor-text"
+                        />
+                        <span className="text-[11px] text-slate-400 font-sans select-none">px</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setDraftSettings(prev => ({ 
+                          ...prev, 
+                          logoHeight: Math.min(84, (prev.logoHeight || 46) + 2) 
+                        }))}
+                        className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors active:scale-90 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={(draftSettings.logoHeight || 46) >= 84}
+                        title="Increase by 2px"
+                        aria-label="Increase size"
+                      >
+                        <Plus size={13} strokeWidth={2.5} />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Range Slider */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-mono text-slate-400">28px</span>
+                  {/* Range Slider with Full Track & Sub-labels */}
+                  <div className="space-y-1.5 pt-1">
                     <input 
                       type="range" 
                       min="28" 
@@ -4629,33 +4664,48 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
                       step="2"
                       value={draftSettings.logoHeight || 46} 
                       onChange={(e) => setDraftSettings(prev => ({ ...prev, logoHeight: Number(e.target.value) }))}
-                      className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none"
                     />
-                    <span className="text-[11px] font-mono text-slate-400">84px</span>
+                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 px-0.5">
+                      <span>28px (Min)</span>
+                      <span className="text-indigo-400 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                        {draftSettings.logoHeight || 46}px
+                      </span>
+                      <span>84px (Max)</span>
+                    </div>
                   </div>
 
-                  {/* Quick Preset Buttons */}
-                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  {/* Quick Preset Buttons - Symmetrical 2x2 on Mobile, 1x4 on Desktop */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                     {[
                       { label: 'Compact', size: 34 },
                       { label: 'Standard', size: 46 },
                       { label: 'Prominent', size: 58 },
                       { label: 'Bold', size: 72 }
-                    ].map(preset => (
-                      <button
-                        key={preset.size}
-                        type="button"
-                        onClick={() => setDraftSettings(prev => ({ ...prev, logoHeight: preset.size }))}
-                        className={cn(
-                          "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border",
-                          (draftSettings.logoHeight || 46) === preset.size
-                            ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
-                            : "bg-white/5 text-slate-400 border-white/10 hover:text-white hover:bg-white/10"
-                        )}
-                      >
-                        {preset.label} ({preset.size}px)
-                      </button>
-                    ))}
+                    ].map(preset => {
+                      const isSelected = (draftSettings.logoHeight || 46) === preset.size;
+                      return (
+                        <button
+                          key={preset.size}
+                          type="button"
+                          onClick={() => setDraftSettings(prev => ({ ...prev, logoHeight: preset.size }))}
+                          className={cn(
+                            "flex items-center justify-between sm:justify-center sm:gap-1.5 py-2 px-3 sm:px-2 rounded-xl text-xs transition-all cursor-pointer border select-none active:scale-95",
+                            isSelected
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30 font-semibold"
+                              : "bg-slate-900/60 text-slate-300 border-slate-800 hover:border-slate-700 hover:bg-slate-800/80 hover:text-white"
+                          )}
+                        >
+                          <span className="truncate">{preset.label}</span>
+                          <span className={cn(
+                            "text-[10px] font-mono px-1.5 py-0.5 rounded ml-1",
+                            isSelected ? "bg-white/20 text-white" : "bg-black/30 text-slate-400"
+                          )}>
+                            {preset.size}px
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

@@ -1372,7 +1372,11 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     const pSales = new Map<string, { product: Product, quantity: number }>();
     if (adminStats && adminStats.productSales) {
       Object.entries(adminStats.productSales).forEach(([productId, quantity]) => {
-        const latestProduct = products.find(p => p.id === productId);
+        const orderItemProduct = (adminStats.productDetails && adminStats.productDetails[productId]) ||
+          paginatedOrders.flatMap(o => o.items || []).find((it: any) => it?.product?.id === productId || it?.id === productId)?.product ||
+          orders.flatMap(o => o.items || []).find((it: any) => it?.product?.id === productId || it?.id === productId)?.product;
+
+        const latestProduct = products.find(p => p.id === productId) || orderItemProduct;
         if (latestProduct) {
           pSales.set(productId, { product: latestProduct, quantity: Number(quantity) || 0 });
         }

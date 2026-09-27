@@ -51,6 +51,7 @@ export async function onRequestGet(context: any) {
       totalQuantity: 0,
       uniqueItemIds: [] as string[],
       productSales: {} as Record<string, number>,
+      productDetails: {} as Record<string, any>,
       salesData: {} as Record<string, { total: number, profit: number, count: number }>
     };
 
@@ -103,6 +104,9 @@ export async function onRequestGet(context: any) {
                      if (item.product && item.product.id) {
                          if (!stats.uniqueItemIds.includes(item.product.id)) {
                              stats.uniqueItemIds.push(item.product.id);
+                         }
+                         if (!stats.productDetails[item.product.id]) {
+                             stats.productDetails[item.product.id] = item.product;
                          }
                          if (o.status !== 'Canceled' && o.status !== 'Returned' && o.status !== 'Complete Return') {
                              stats.productSales[item.product.id] = (stats.productSales[item.product.id] || 0) + (item.quantity || 1);

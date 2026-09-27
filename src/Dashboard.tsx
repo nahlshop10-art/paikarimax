@@ -160,7 +160,7 @@ const TopProductItem = React.memo(({
           {/* Stock Quantity Badge with dynamic color (0-5 Red, 6-15 Yellow, 16+ Green) */}
           <div 
             title={`Remaining Stock: ${stock}`}
-            className={`absolute ${isDeleteMode ? 'bottom-1 left-1' : 'top-1 left-1'} ${stockBadgeColor} text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full z-10 shadow-md min-w-[18px] sm:min-w-[20px] text-center border border-black/10 pointer-events-none`}
+            className={`absolute bottom-1 left-1 ${stockBadgeColor} text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full z-10 shadow-md min-w-[18px] sm:min-w-[20px] text-center border border-black/10 pointer-events-none`}
           >
             {stock}
           </div>

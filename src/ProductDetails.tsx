@@ -275,7 +275,7 @@ export default function ProductDetails({
   );
 
   const currentLogoHeight = websiteSettings?.logoHeight || 46;
-  const headerMinHeight = Math.max(56, currentLogoHeight + 14);
+  const headerMinHeight = websiteSettings?.logoUrl ? Math.max(56, currentLogoHeight + 14) : 56;
 
   return (
     <div 

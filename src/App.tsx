@@ -1359,7 +1359,7 @@ export default function App() {
   } as React.CSSProperties;
 
   const currentLogoHeight = websiteSettings?.logoHeight || 46;
-  const headerMinHeight = Math.max(56, currentLogoHeight + 14);
+  const headerMinHeight = websiteSettings?.logoUrl ? Math.max(56, currentLogoHeight + 14) : 56;
 
   return (
     <div style={themeVars} className="contents main-storefront">
@@ -1463,15 +1463,13 @@ export default function App() {
                       onPointerLeave={handleLogoPointerUp}
                     />
                   ) : (
-                    <span 
-                      className="text-base md:text-lg font-black tracking-tight text-[var(--theme-black)] cursor-pointer select-none pointer-events-auto"
+                    <div 
+                      className="w-24 h-10 cursor-pointer select-none pointer-events-auto"
                       onClick={handleLogoClick}
                       onPointerDown={handleLogoPointerDown}
                       onPointerUp={handleLogoPointerUp}
                       onPointerLeave={handleLogoPointerUp}
-                    >
-                      {websiteSettings.storeName || websiteSettings.shopName || 'PaikariX'}
-                    </span>
+                    />
                   )}
                 </div>
 

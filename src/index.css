@@ -1,0 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');
+@import "tailwindcss";
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+:root {
+  --dash-bg: #0F1729;
+  --dash-card: #1E293B;
+  --dash-border: #334155;
+  --dash-border-light: #475569;
+  --btn-add-height: 38px;
+  --btn-add-width: 100%;
+  --btn-add-radius: 9999px;
+}
+
+html, body {
+  overflow-x: clip;
+  width: 100%;
+  max-width: 100vw;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+#root {
+  overflow-x: clip;
+  width: 100%;
+  max-width: 100vw;
+  position: relative;
+}
+
+html.scroll-locked, body.scroll-locked {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
+.product-card-contain {
+  contain: layout paint;
+  will-change: transform;
+}
+
+.rounded-b-20px {
+  border-bottom-left-radius: 20px !important;
+  border-bottom-right-radius: 20px !important;
+}
+
+.contain-strict {
+  contain: strict;
+}
+
+.btn-gradient {
+  background: var(--theme-primary-gradient);
+  box-shadow: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45);
+  color: rgb(254, 243, 245);
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--btn-add-radius, 9999px);
+  padding: 8px 16px;
+  transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.btn-add-to-cart {
+  width: var(--btn-add-width, 100%) !important;
+  height: var(--btn-add-height, 38px) !important;
+  border-radius: var(--btn-add-radius, 9999px) !important;
+  max-width: 100%;
+}
+
+.btn-view-product {
+  width: 100% !important;
+  height: var(--btn-add-height, 38px) !important;
+  border-radius: var(--btn-add-radius, 9999px) !important;
+  max-width: 100%;
+}
+
+.btn-gradient:hover {
+  filter: brightness(1.03);
+  opacity: 0.98;
+}
+
+.btn-gradient:active {
+  transform: scale(0.98);
+}
+
+/* Lightweight hardware-accelerated 3D card flip utilities */
+.card-flip-container {
+  perspective: 1000px;
+}
+.card-flip-inner {
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+}
+.card-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+.card-flip-front,
+.card-flip-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card-flip-back {
+  transform: rotateY(180deg);
+}
+
+/* Lightweight GPU-accelerated shimmer skeleton for dashboard product cards */
+@keyframes dash-shimmer-sweep {
+  0% {
+    transform: translate3d(-100%, 0, 0);
+  }
+  100% {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.dash-img-skeleton-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 20%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 80%,
+    transparent 100%
+  );
+  animation: dash-shimmer-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-img-skeleton-shimmer {
+    animation: none;
+    opacity: 0.4;
+    background: rgba(255, 255, 255, 0.04);
+  }
+}

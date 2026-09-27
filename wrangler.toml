@@ -1,0 +1,31 @@
+name = "paikarimax"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+
+[placement]
+mode = "smart"
+
+# D1 Database binding - NEW paikarimax
+[[d1_databases]]
+binding = "DB"
+database_name = "paikarimax"
+database_id = "41352240-79b1-47da-aed8-82c9b2e8dde3"
+
+# R2 Bucket binding - NEW paikarimax
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "paikarimax"
+
+# Cloudflare Vectorize binding for High-Speed Visual Search
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "paikarimax-products"
+
+[vars]
+ENVIRONMENT = "production"
+# R2 Public Development URL for paikarimax
+R2_PUBLIC_DOMAIN = "pub-a64a338437e243b287fd4d2fd98fa18d.r2.dev"
+# Secure JWT Secret key for admin authentication
+JWT_SECRET = "paikarimax_sec_8f9c2d1b5e3a70461984c6e1d0a2f4c93e6b8a5d7f012c4e9b2a6d8f1c3e5a7b"
+

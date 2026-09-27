@@ -16,9 +16,9 @@ export async function onRequestPost({ request, env }: any) {
 
     // Strict image extension allowlist
     const rawExt = (file.name.split('.').pop() || 'webp').toLowerCase();
-    const allowedExtensions = ['webp', 'png', 'jpg', 'jpeg', 'gif'];
+    const allowedExtensions = ['webp', 'png', 'jpg', 'jpeg', 'gif', 'svg'];
     if (!allowedExtensions.includes(rawExt)) {
-      return new Response('Unsupported file format. Only webp, png, jpg, and gif are permitted.', { status: 400 });
+      return new Response('Unsupported file format. Only webp, png, jpg, jpeg, gif, and svg are permitted.', { status: 400 });
     }
 
     // Strict MIME type mapping
@@ -27,7 +27,8 @@ export async function onRequestPost({ request, env }: any) {
       png: 'image/png',
       jpg: 'image/jpeg',
       jpeg: 'image/jpeg',
-      gif: 'image/gif'
+      gif: 'image/gif',
+      svg: 'image/svg+xml'
     };
     const contentType = mimeMap[rawExt] || 'image/webp';
 

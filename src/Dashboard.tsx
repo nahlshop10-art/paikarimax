@@ -4147,6 +4147,11 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -4162,67 +4167,96 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
     }
   };
 
-  const [isDragging, setIsDragging] = useState(false);
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    setIsDraggingBanner(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    setIsDraggingBanner(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    setIsDraggingBanner(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFile(e.dataTransfer.files[0]);
     }
   };
 
   const processFile = (file: File) => {
+    if (!file) return;
+    setIsUploadingBanner(true);
     const reader = new FileReader();
+    reader.onerror = () => {
+      setIsUploadingBanner(false);
+      alert('Failed to read image file.');
+    };
     reader.onload = (event) => {
       const img = new window.Image();
+      img.onerror = () => {
+        setIsUploadingBanner(false);
+        alert('Could not decode banner image. Please upload a valid WebP, JPG, or PNG.');
+      };
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const targetRatio = 16 / 5;
-        let width = img.width;
-        let height = img.height;
-        const currentRatio = width / height;
+        let sWidth = img.width;
+        let sHeight = img.height;
+        const currentRatio = sWidth / sHeight;
 
         if (currentRatio > targetRatio) {
-          width = height * targetRatio;
+          sWidth = Math.round(sHeight * targetRatio);
         } else {
-          height = width / targetRatio;
+          sHeight = Math.round(sWidth / targetRatio);
         }
 
-        if (width > 1600) {
-          width = 1600;
-          height = 1600 / targetRatio;
-        }
+        const srcX = Math.round((img.width - sWidth) / 2);
+        const srcY = Math.round((img.height - sHeight) / 2);
 
-        canvas.width = width;
-        canvas.height = height;
+        // High-definition banner (up to 1600px width at 16:5 ratio -> 1600x500)
+        const destWidth = Math.min(1600, sWidth);
+        const destHeight = Math.round(destWidth / targetRatio);
+
+        canvas.width = destWidth;
+        canvas.height = destHeight;
         const ctx = canvas.getContext('2d');
-        const srcX = (img.width - width) / 2;
-        const srcY = (img.height - height) / 2;
-        
-        ctx?.drawImage(img, srcX, srcY, width, height, 0, 0, width, height);
-        
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, srcX, srcY, sWidth, sHeight, 0, 0, destWidth, destHeight);
+        }
+
+        // Standard WebP export with quality 0.88 for optimal speed and visual quality
         canvas.toBlob(async (blob) => {
           if (blob) {
             try {
-              const url = await cloudStore.uploadFile(blob, `banner_${Date.now()}.jpg`);
+              const url = await cloudStore.uploadFile(blob, `banner_${Date.now()}.webp`);
               setDraftSettings(prev => ({ ...prev, banners: [...(prev.banners || []), url] }));
             } catch (e) {
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              console.warn('Banner upload failed, falling back to dataUrl', e);
+              const dataUrl = canvas.toDataURL('image/webp', 0.88);
               setDraftSettings(prev => ({ ...prev, banners: [...(prev.banners || []), dataUrl] }));
+            } finally {
+              setIsUploadingBanner(false);
             }
+          } else {
+            // Fallback for browsers without webp canvas export
+            canvas.toBlob(async (jpegBlob) => {
+              if (jpegBlob) {
+                try {
+                  const url = await cloudStore.uploadFile(jpegBlob, `banner_${Date.now()}.jpg`);
+                  setDraftSettings(prev => ({ ...prev, banners: [...(prev.banners || []), url] }));
+                } catch {
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                  setDraftSettings(prev => ({ ...prev, banners: [...(prev.banners || []), dataUrl] }));
+                }
+              }
+              setIsUploadingBanner(false);
+            }, 'image/jpeg', 0.85);
           }
-        }, 'image/jpeg', 0.8);
+        }, 'image/webp', 0.88);
       };
       img.src = event.target?.result as string;
     };
@@ -4240,6 +4274,100 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
       ...prev,
       banners: (prev.banners || []).filter((_, i) => i !== index)
     }));
+  };
+
+  const moveBanner = (fromIdx: number, toIdx: number) => {
+    setDraftSettings(prev => {
+      const list = [...(prev.banners || [])];
+      if (toIdx < 0 || toIdx >= list.length) return prev;
+      const [item] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, item);
+      return { ...prev, banners: list };
+    });
+  };
+
+  const processLogoFile = async (file: File) => {
+    if (!file) return;
+    setIsUploadingLogo(true);
+    try {
+      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const ext = (cleanName.split('.').pop() || 'webp').toLowerCase();
+
+      // SVG is a vector format - upload directly as-is
+      if (ext === 'svg') {
+        const url = await cloudStore.uploadFile(file, `logo_${Date.now()}_${cleanName}`);
+        setDraftSettings(prev => ({ ...prev, logoUrl: url }));
+        return;
+      }
+
+      // If raster file is under 2MB and already webp/png/jpg, upload directly to preserve transparency
+      if (file.size <= 2 * 1024 * 1024) {
+        const url = await cloudStore.uploadFile(file, `logo_${Date.now()}_${cleanName}`);
+        setDraftSettings(prev => ({ ...prev, logoUrl: url }));
+        return;
+      }
+
+      // If oversized raster image (>2MB), compress to crisp WebP preserving aspect ratio and alpha channel
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const maxDim = 800;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+          }
+          canvas.toBlob(async (blob) => {
+            if (blob) {
+              try {
+                const url = await cloudStore.uploadFile(blob, `logo_${Date.now()}.webp`);
+                setDraftSettings(prev => ({ ...prev, logoUrl: url }));
+              } catch {
+                const dataUrl = canvas.toDataURL('image/webp', 0.9);
+                setDraftSettings(prev => ({ ...prev, logoUrl: dataUrl }));
+              }
+            }
+            setIsUploadingLogo(false);
+          }, 'image/webp', 0.9);
+        };
+        img.onerror = () => {
+          setIsUploadingLogo(false);
+          alert('Could not decode logo image.');
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        setIsUploadingLogo(false);
+        alert('Failed to read logo file.');
+      };
+      reader.readAsDataURL(file);
+      return;
+    } catch (err: any) {
+      console.error('Logo upload error', err);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setDraftSettings(prev => ({ ...prev, logoUrl: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   const addDeliveryCharge = () => {
@@ -4330,14 +4458,41 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
             <div className="space-y-4 pt-2 border-t border-[var(--dash-border)]/40 animate-in fade-in duration-200">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {(draftSettings.banners || []).map((banner, idx) => (
-                  <div key={idx} className="relative aspect-[16/5] rounded-xl overflow-hidden border border-[var(--dash-border)] group shadow-inner">
+                  <div key={idx} className="relative aspect-[16/5] rounded-xl overflow-hidden border border-[var(--dash-border)] group shadow-inner bg-slate-900/50">
                     <img src={banner} alt={`Banner ${idx}`} className="w-full h-full object-cover" />
-                    <button 
-                      onClick={() => removeBanner(idx)}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10 opacity-80 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    >
-                      <X size={12} />
-                    </button>
+                    {/* Controls overlay */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between px-2">
+                      <div className="flex items-center gap-1">
+                        {idx > 0 && (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveBanner(idx, idx - 1); }}
+                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer"
+                            title="Move left"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                        )}
+                        {idx < (draftSettings.banners || []).length - 1 && (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveBanner(idx, idx + 1); }}
+                            className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer"
+                            title="Move right"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeBanner(idx); }}
+                        className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md cursor-pointer transition-transform hover:scale-110"
+                        title="Delete banner"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -4345,22 +4500,31 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
               <div 
                 className={cn(
                   "border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-colors cursor-pointer",
-                  isDragging ? "border-indigo-400 bg-indigo-500/10 text-indigo-300" : "border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50"
+                  isDraggingBanner ? "border-indigo-400 bg-indigo-500/10 text-indigo-300" : "border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50"
                 )}
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <ImageIcon size={28} className="mb-1 text-indigo-400" />
-                <span className="text-xs font-bold text-white">Click or drag banner here to upload</span>
-                <span className="text-[11px] text-slate-500 mt-0.5">Recommended 1600x500 JPG/PNG</span>
+                {isUploadingBanner ? (
+                  <div className="flex flex-col items-center gap-1.5 py-2">
+                    <RefreshCw size={26} className="animate-spin text-indigo-400" />
+                    <span className="text-xs font-semibold text-slate-200">Optimizing & uploading WebP banner...</span>
+                  </div>
+                ) : (
+                  <>
+                    <ImageIcon size={28} className="mb-1 text-indigo-400" />
+                    <span className="text-xs font-bold text-white">Click or drag banner here to upload</span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">Recommended 1600x500 WebP, JPG, or PNG</span>
+                  </>
+                )}
               </div>
               <input 
                 type="file" 
                 ref={fileInputRef} 
                 className="hidden" 
-                accept="image/*"
+                accept="image/webp, image/jpeg, image/png, image/jpg, image/gif, image/*"
                 onChange={handleImageUpload}
               />
               
@@ -4382,52 +4546,91 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
 
         {/* Logo Section */}
         <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 md:p-6 shadow-xl space-y-4">
-          <div>
-            <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Header Store Logo</h2>
-            <p className="text-xs text-slate-400">Primary brand identity shown on desktop and mobile navbar.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm md:text-base font-bold text-white mb-0.5">Header Store Logo</h2>
+              <p className="text-xs text-slate-400">Primary brand identity shown on desktop and mobile navbar. Supports WebP, PNG, SVG, JPG.</p>
+            </div>
+            {draftSettings.logoUrl && (
+              <button 
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={isUploadingLogo}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/15 text-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} className={cn(isUploadingLogo && "animate-spin")} />
+                <span>Replace</span>
+              </button>
+            )}
           </div>
           <div>
             {draftSettings.logoUrl ? (
-              <div className="relative w-48 h-16 rounded-xl overflow-hidden border border-[var(--dash-border)] bg-white/5 flex items-center justify-center p-2">
-                <img src={draftSettings.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+              <div className="relative w-48 sm:w-56 h-20 rounded-xl overflow-hidden border border-[var(--dash-border)] bg-slate-900/60 flex items-center justify-center p-3 group shadow-inner">
+                {/* Subtle checkerboard pattern to ensure transparent WebP/PNG/SVG logos are clearly visible */}
+                <div 
+                  className="absolute inset-0 opacity-15 pointer-events-none"
+                  style={{
+                    backgroundImage: 'linear-gradient(45deg, #888 25%, transparent 25%), linear-gradient(-45deg, #888 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #888 75%), linear-gradient(-45deg, transparent 75%, #888 75%)',
+                    backgroundSize: '16px 16px',
+                    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px'
+                  }}
+                />
+                <img 
+                  src={draftSettings.logoUrl} 
+                  alt="Logo" 
+                  className="max-w-full max-h-full object-contain relative z-10 transition-transform group-hover:scale-105" 
+                />
                 <button 
+                  type="button"
                   onClick={() => setDraftSettings(prev => ({ ...prev, logoUrl: undefined }))}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-10 cursor-pointer"
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md z-20 cursor-pointer transition-transform hover:scale-110"
+                  title="Remove Logo"
                 >
                   <X size={12} />
                 </button>
               </div>
             ) : (
               <div 
-                className="border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-colors cursor-pointer border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50"
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/png, image/jpeg, image/svg+xml';
-                  input.onchange = (e: any) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      const file = e.target.files[0];
-                      cloudStore.uploadFile(file, `logo_${Date.now()}_${file.name}`)
-                        .then(url => {
-                          setDraftSettings(prev => ({ ...prev, logoUrl: url }));
-                        })
-                        .catch(() => {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            setDraftSettings(prev => ({ ...prev, logoUrl: event.target?.result as string }));
-                          };
-                          reader.readAsDataURL(file);
-                        });
-                    }
-                  };
-                  input.click();
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-colors cursor-pointer",
+                  isDraggingLogo ? "border-indigo-400 bg-indigo-500/10 text-indigo-300" : "border-[var(--dash-border)] text-slate-400 hover:text-white hover:border-indigo-500/50"
+                )}
+                onClick={() => logoInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setIsDraggingLogo(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setIsDraggingLogo(false); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingLogo(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processLogoFile(e.dataTransfer.files[0]);
+                  }
                 }}
               >
-                <ImageIcon size={24} className="mb-1 text-indigo-400" />
-                <span className="text-xs font-bold text-white">Click to upload store logo</span>
-                <span className="text-[10px] text-slate-500 mt-0.5">PNG, SVG transparent background recommended</span>
+                {isUploadingLogo ? (
+                  <div className="flex flex-col items-center gap-1.5 py-2">
+                    <RefreshCw size={24} className="animate-spin text-indigo-400" />
+                    <span className="text-xs font-semibold text-slate-200">Uploading logo...</span>
+                  </div>
+                ) : (
+                  <>
+                    <ImageIcon size={26} className="mb-1 text-indigo-400" />
+                    <span className="text-xs font-bold text-white">Click or drag logo here to upload</span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">Supports WebP, PNG, SVG, JPG (Transparent background recommended)</span>
+                  </>
+                )}
               </div>
             )}
+            <input 
+              type="file" 
+              ref={logoInputRef} 
+              className="hidden" 
+              accept="image/webp, image/png, image/jpeg, image/jpg, image/svg+xml, .webp, .png, .jpg, .jpeg, .svg"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  processLogoFile(e.target.files[0]);
+                }
+              }}
+            />
           </div>
         </div>
 

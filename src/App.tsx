@@ -1445,7 +1445,7 @@ export default function App() {
                   {websiteSettings.logoUrl ? (
                     <img 
                       src={websiteSettings.logoUrl} 
-                      alt="Logo" 
+                      alt={websiteSettings.storeName || websiteSettings.shopName || "Logo"} 
                       className="h-8 md:h-9 object-contain cursor-pointer select-none pointer-events-auto"
                       onClick={handleLogoClick}
                       onPointerDown={handleLogoPointerDown}
@@ -1453,13 +1453,15 @@ export default function App() {
                       onPointerLeave={handleLogoPointerUp}
                     />
                   ) : (
-                    <div 
-                      className="h-8 w-8 cursor-pointer select-none pointer-events-auto"
+                    <span 
+                      className="text-base md:text-lg font-black tracking-tight text-[var(--theme-black)] cursor-pointer select-none pointer-events-auto"
                       onClick={handleLogoClick}
                       onPointerDown={handleLogoPointerDown}
                       onPointerUp={handleLogoPointerUp}
                       onPointerLeave={handleLogoPointerUp}
-                    />
+                    >
+                      {websiteSettings.storeName || websiteSettings.shopName || 'PaikariX'}
+                    </span>
                   )}
                 </div>
 

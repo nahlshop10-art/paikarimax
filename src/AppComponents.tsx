@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, Search, ShoppingBag, LayoutGrid, Gem, Circle, Sparkles, LifeBuoy, Activity, CircleDashed, SlidersHorizontal, Lock, Unlock, Trash2, Minus, Plus, X, ArrowRight, ArrowLeft, User, Phone, MapPin, Truck, Check, Send, Copy, ChevronUp, MoreHorizontal, RefreshCw, Star, Download, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, BadgePercent, Edit3, EyeOff, MessageSquareText, Package, CheckCircle2, Navigation, Camera, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -15,23 +15,26 @@ import { DEFAULT_ACTION_BUTTONS, Category, Product, WebsiteSettings, Order, Cart
 import { compressImageForVisualSearch } from './lib/imageOptimizationWorker';
 
 export function BannerSlider({ banners, borderRadius = '0px' }: { banners: string[], borderRadius?: string }) {
+  const validBanners = useMemo(() => (banners || []).filter(b => typeof b === 'string' && b.trim() !== ''), [banners]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (validBanners.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % banners.length);
-    }, 2000);
+      setCurrentIndex((prev) => (prev + 1) % validBanners.length);
+    }, 3000);
     return () => clearInterval(interval);
-  }, [banners.length]);
+  }, [validBanners.length]);
 
-  const nextSlide = () => setCurrentIndex((prev) => (prev + 1) % banners.length);
-  const prevSlide = () => setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+  const nextSlide = () => validBanners.length > 0 && setCurrentIndex((prev) => (prev + 1) % validBanners.length);
+  const prevSlide = () => validBanners.length > 0 && setCurrentIndex((prev) => (prev - 1 + validBanners.length) % validBanners.length);
 
   // If there's a border radius other than 0px, add a bit of padding to see it,
   // or we can just apply the border radius and if they want it full width, they can use 0px.
   // Actually, usually users expect a small margin if it's rounded. Let's add slight margin if rounded > 0.
   const isRounded = borderRadius && borderRadius !== '0px' && borderRadius !== '0';
+
+  if (validBanners.length === 0) return null;
 
   return (
     <div className={isRounded ? "px-2 pt-2" : ""}>
@@ -42,7 +45,7 @@ export function BannerSlider({ banners, borderRadius = '0px' }: { banners: strin
         <AnimatePresence initial={false}>
           <motion.img
             key={currentIndex}
-            src={banners[currentIndex]}
+            src={validBanners[currentIndex]}
             alt={`Banner ${currentIndex + 1}`}
             className="absolute inset-0 w-full h-full object-cover"
             style={{ borderRadius }}
@@ -64,23 +67,23 @@ export function BannerSlider({ banners, borderRadius = '0px' }: { banners: strin
         />
       </AnimatePresence>
 
-      {banners.length > 1 && (
+      {validBanners.length > 1 && (
         <>
           <button 
             onClick={prevSlide}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--theme-black)]/30 rounded-full flex items-center justify-center text-[var(--theme-white)] backdrop-blur-sm"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--theme-black)]/30 rounded-full flex items-center justify-center text-[var(--theme-white)] backdrop-blur-sm cursor-pointer hover:bg-[var(--theme-black)]/50 transition-colors"
           >
             <ChevronLeft size={16} />
           </button>
           <button 
             onClick={nextSlide}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--theme-black)]/30 rounded-full flex items-center justify-center text-[var(--theme-white)] backdrop-blur-sm"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--theme-black)]/30 rounded-full flex items-center justify-center text-[var(--theme-white)] backdrop-blur-sm cursor-pointer hover:bg-[var(--theme-black)]/50 transition-colors"
           >
             <ChevronRight size={16} />
           </button>
           
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {banners.map((_, idx) => (
+            {validBanners.map((_, idx) => (
               <div 
                 key={idx} 
                 className={cn("w-1.5 h-1.5 rounded-full transition-colors", idx === currentIndex ? "bg-[var(--theme-white)]" : "bg-[var(--theme-white)]/50")}

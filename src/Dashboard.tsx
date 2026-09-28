@@ -2287,7 +2287,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowPresetDropdown(false)} />
                 <div 
-                  className="absolute top-full left-0 mt-2 w-48 sm:w-52 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-50 p-1.5 max-h-56 sm:max-h-60 overflow-y-auto overscroll-contain no-scrollbar backdrop-blur-md space-y-0.5"
+                  className="absolute top-full left-0 mt-2 w-48 sm:w-52 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-50 p-1.5 max-h-56 sm:max-h-60 overflow-y-auto overscroll-contain no-scrollbar backdrop-blur-md space-y-0.5 [&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar]:w-0"
                   style={{
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none'
@@ -3978,9 +3978,10 @@ function NavButton({ icon: Icon, label, active, onClick }: { icon: any, label: s
 interface SortableCategoryItemProps {
   category: Category;
   onClick: () => void;
+  isDraggingRef: React.MutableRefObject<boolean>;
 }
 
-function SortableCategoryItem({ category, onClick }: SortableCategoryItemProps) {
+function SortableCategoryItem({ category, onClick, isDraggingRef }: SortableCategoryItemProps) {
   const {
     attributes,
     listeners,
@@ -3994,7 +3995,16 @@ function SortableCategoryItem({ category, onClick }: SortableCategoryItemProps) 
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 1,
-    touchAction: 'none',
+    touchAction: isDragging ? 'none' : 'manipulation',
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isDragging || isDraggingRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onClick();
   };
 
   return (
@@ -4003,32 +4013,32 @@ function SortableCategoryItem({ category, onClick }: SortableCategoryItemProps) 
       style={style}
       {...attributes}
       {...listeners}
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
-        "flex flex-col items-center justify-start cursor-pointer select-none group transition-all duration-150 py-1",
+        "flex flex-col items-center justify-start cursor-pointer select-none group transition-all duration-150 py-1.5",
         isDragging && "opacity-40 scale-105"
       )}
     >
       {/* Circular icon container exactly matching reference image */}
       <div className={cn(
-        "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--dash-card)] border border-[var(--dash-border)]/80 flex items-center justify-center p-1 shadow-lg group-hover:border-indigo-500/60 group-hover:scale-105 active:scale-95 transition-all relative overflow-hidden",
-        isDragging && "ring-2 ring-indigo-500 ring-offset-2 ring-offset-[var(--dash-bg)] shadow-indigo-500/20"
+        "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--dash-card)] border border-[var(--dash-border)]/80 flex items-center justify-center p-1 shadow-md group-hover:border-indigo-500/60 transition-all relative overflow-hidden",
+        isDragging ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-[var(--dash-bg)] shadow-indigo-500/20" : "group-hover:scale-105 active:scale-95"
       )}>
         {category.icon ? (
           <img 
             src={category.icon} 
             alt={category.name} 
-            className="w-full h-full object-cover rounded-full pointer-events-none" 
+            className="w-full h-full object-cover rounded-full pointer-events-none select-none" 
           />
         ) : (
-          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500/15 to-purple-500/15 flex items-center justify-center text-indigo-400 font-bold text-lg sm:text-xl">
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500/15 to-purple-500/15 flex items-center justify-center text-indigo-400 font-bold text-base sm:text-lg">
             {category.name.charAt(0).toUpperCase()}
           </div>
         )}
       </div>
 
       {/* Category Name under the circle */}
-      <span className="text-[11px] sm:text-xs font-medium text-white/90 group-hover:text-indigo-400 transition-colors text-center mt-2.5 truncate w-full px-0.5 tracking-tight">
+      <span className="text-[11px] sm:text-xs font-medium text-white/90 group-hover:text-indigo-400 transition-colors text-center mt-2 truncate w-full px-0.5 tracking-tight">
         {category.name}
       </span>
     </div>
@@ -4038,6 +4048,7 @@ function SortableCategoryItem({ category, onClick }: SortableCategoryItemProps) 
 function CategoriesManager({ categories, setCategories, onClose, themePrimary }: { categories: Category[], setCategories: React.Dispatch<React.SetStateAction<Category[]>>, onClose: () => void, themePrimary?: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const isDraggingRef = useRef(false);
   
   const scrollRef = useScrollRestore('dashboard-categories');
 
@@ -4119,13 +4130,25 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
           </div>
 
           {/* Categories Grid with Drag and Drop */}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext 
+            sensors={sensors} 
+            collisionDetection={closestCenter} 
+            onDragStart={() => { isDraggingRef.current = true; }}
+            onDragEnd={(event) => {
+              handleDragEnd(event);
+              setTimeout(() => { isDraggingRef.current = false; }, 150);
+            }}
+            onDragCancel={() => {
+              setTimeout(() => { isDraggingRef.current = false; }, 150);
+            }}
+          >
             <SortableContext items={categories.map(c => c.id)} strategy={rectSortingStrategy}>
               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-x-3 sm:gap-x-5 gap-y-6 pt-2">
                 {categories.map(cat => (
                   <SortableCategoryItem 
                     key={cat.id} 
                     category={cat} 
+                    isDraggingRef={isDraggingRef}
                     onClick={() => { setEditingCategory(cat); setIsEditing(true); }} 
                   />
                 ))}
@@ -4190,16 +4213,16 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header matching reference screenshot 3 */}
-        <div className="px-4 py-4 md:px-6 border-b border-[var(--dash-border)]/40 flex items-center justify-between bg-[var(--dash-bg)]/40">
+    <div className="fixed inset-0 z-[110] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px] animate-in fade-in duration-150">
+      {/* Header matching reference screenshot 3 */}
+      <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="max-w-xl mx-auto w-full flex items-center justify-between px-3 py-3.5 md:px-6 md:py-4">
           <button 
             onClick={onClose} 
             className="w-10 h-10 rounded-xl hover:bg-white/5 active:scale-95 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
             title="Go back"
           >
-            <ChevronLeft size={22} />
+            <ChevronLeft size={24} />
           </button>
           
           <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
@@ -4208,8 +4231,12 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
 
           {onDelete ? (
             <button 
-              onClick={onDelete}
-              className="w-10 h-10 rounded-xl text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-colors cursor-pointer"
+              onClick={() => {
+                if (window.confirm(`Are you sure you want to delete "${category?.name || 'this category'}"?`)) {
+                  onDelete();
+                }
+              }}
+              className="w-10 h-10 rounded-xl text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 flex items-center justify-center transition-colors cursor-pointer"
               title="Delete Category"
             >
               <Trash2 size={20} />
@@ -4218,13 +4245,15 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
             <div className="w-10 shrink-0" />
           )}
         </div>
+      </div>
 
-        {/* Form Body matching reference screenshot 3 */}
-        <div 
-          className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4 max-w-lg mx-auto w-full overscroll-y-contain pb-6"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          <div className="bg-[var(--dash-bg)]/60 border border-[var(--dash-border)]/90 rounded-2xl p-4 sm:p-6 shadow-xl space-y-5">
+      {/* Form Body matching reference screenshot 3 */}
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-6 overscroll-y-contain custom-scrollbar pb-32"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="max-w-xl mx-auto w-full">
+          <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-2xl p-4 sm:p-6 shadow-xl space-y-5">
             {/* Title field */}
             <div>
               <label className="text-xs font-semibold text-rose-400 flex items-center gap-1 mb-2">
@@ -4236,10 +4265,10 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Necklace"
-                className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
                 autoFocus
               />
-              <div className="text-[11px] text-gray-500 font-mono mt-1.5 truncate">
+              <div className="text-[11px] text-gray-400 font-mono mt-1.5 truncate">
                 https://paikarix.com/c/{name ? slugify(name) : 'category'}
               </div>
             </div>
@@ -4247,13 +4276,13 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
             {/* Icon field */}
             <div>
               <label className="text-xs font-semibold text-gray-300 mb-2 block">Icon (optional)</label>
-              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-xl p-4 min-h-[120px] flex items-center">
+              <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)]/80 rounded-xl p-4 min-h-[130px] flex items-center">
                 {icon ? (
                   <div className="relative inline-block">
                     <img 
                       src={icon} 
                       alt="Category Icon Preview" 
-                      className="w-24 h-24 object-cover rounded-2xl border border-[var(--dash-border)] shadow-md" 
+                      className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-2xl border border-[var(--dash-border)] shadow-md" 
                     />
                     <button 
                       type="button"
@@ -4268,7 +4297,7 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
                   <button 
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-24 h-24 border-2 border-dashed border-[var(--dash-border)] hover:border-indigo-500 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer bg-[var(--dash-bg)]/40 group"
+                    className="w-24 h-24 sm:w-28 sm:h-28 border-2 border-dashed border-[var(--dash-border)] hover:border-indigo-500 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer bg-[var(--dash-card)]/40 group"
                   >
                     <Upload size={22} className="mb-1 text-gray-400 group-hover:text-indigo-400 transition-colors" />
                     <span className="text-[11px] font-bold">Upload</span>
@@ -4289,7 +4318,8 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
               type="button"
               onClick={handleSave}
               disabled={!name.trim()}
-              className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-600/20 cursor-pointer mt-4"
+              style={themePrimary ? { backgroundColor: themePrimary } : undefined}
+              className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg cursor-pointer mt-4"
             >
               {category ? 'Update' : 'Create Category'}
             </button>

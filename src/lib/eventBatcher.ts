@@ -207,20 +207,30 @@ export const flushEvents = async () => {
     };
     
     if (first.userData) {
-      payload.user_data = {
-        email_address: first.userData.email,
-        phone_number: first.userData.phone
-      };
+      const userDataObj: any = {};
+      if (first.userData.sha256_email) {
+        userDataObj.sha256_email_address = [first.userData.sha256_email];
+      }
+      if (first.userData.sha256_phone) {
+        userDataObj.sha256_phone_number = [first.userData.sha256_phone];
+      }
+      if (Object.keys(userDataObj).length > 0) {
+        payload.user_data = userDataObj;
+      }
     }
 
     try {
       const url = `/api/ga4`;
-      await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         keepalive: true
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn('GA4 batch response not ok:', res.status, errText);
+      }
     } catch (e) {
       console.error('GA4 batch error', e);
     }

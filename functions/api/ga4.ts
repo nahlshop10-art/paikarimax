@@ -41,7 +41,12 @@ export async function onRequestPost({ request, env }: any) {
       payload.user_data = data.user_data;
     }
 
-    const url = `https://www.google-analytics.com/mp/collect?measurement_id=${pixelSettings.measurementId}&api_secret=${pixelSettings.apiSecret}`;
+    const urlObj = new URL(request.url);
+    const isDebug = urlObj.searchParams.get("debug") === "true";
+    const baseHost = isDebug 
+      ? "https://www.google-analytics.com/debug/mp/collect" 
+      : "https://www.google-analytics.com/mp/collect";
+    const url = `${baseHost}?measurement_id=${pixelSettings.measurementId}&api_secret=${pixelSettings.apiSecret}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 

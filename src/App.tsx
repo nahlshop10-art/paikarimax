@@ -189,6 +189,11 @@ export default function App() {
         accessToken: '',
         testCode: ''
       },
+      ga4: {
+        enabled: false,
+        measurementId: '',
+        apiSecret: ''
+      },
       pixelBatch: {
         enabled: true,
         intervalSeconds: 35
@@ -1250,31 +1255,34 @@ export default function App() {
       });
     }
 
-    trackGA4Event('purchase', {
-      transaction_id: serverOrder.id,
-      value: serverOrder.total,
-      currency: 'BDT',
-      tax: 0,
-      shipping: deliveryCharge,
-      items: cart.map(item => ({
-        item_id: item.product.id,
-        item_name: item.product.title,
-        price: item.product.price,
-        quantity: item.quantity
-      }))
-    }, {
-      transaction_id: serverOrder.id,
-      value: serverOrder.total,
-      currency: 'BDT',
-      tax: 0,
-      shipping: deliveryCharge,
-      items: cart.map(item => ({
-        item_id: item.product.id,
-        item_name: item.product.title,
-        price: item.product.price,
-        quantity: item.quantity
-      }))
-    }, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' }, { email: userInfo.email, phone: userInfo.phone });
+    const activeGa4 = marketingSettingsRef.current?.ga4 || marketingSettings.ga4;
+    if (activeGa4 && activeGa4.enabled) {
+      trackGA4Event('purchase', {
+        transaction_id: serverOrder.id,
+        value: serverOrder.total,
+        currency: 'BDT',
+        tax: 0,
+        shipping: deliveryCharge,
+        items: cart.map(item => ({
+          item_id: item.product.id,
+          item_name: item.product.title,
+          price: item.product.price,
+          quantity: item.quantity
+        }))
+      }, {
+        transaction_id: serverOrder.id,
+        value: serverOrder.total,
+        currency: 'BDT',
+        tax: 0,
+        shipping: deliveryCharge,
+        items: cart.map(item => ({
+          item_id: item.product.id,
+          item_name: item.product.title,
+          price: item.product.price,
+          quantity: item.quantity
+        }))
+      }, activeGa4, { email: userInfo.email, phone: userInfo.phone });
+    }
   };
 
   const handleSaveIncompleteOrder = (phone: string, name: string = '', address: string = '', status: IncompleteOrderStatus = 'PHONE_ENTERED') => {

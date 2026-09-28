@@ -30,13 +30,6 @@ export async function onRequestGet(context: any) {
     let start = startDate ? new Date(startDate) : null;
     let end = endDate ? new Date(endDate) : null;
     
-    if (start && end) {
-       const startStr = start.toISOString().replace('T', ' ').substring(0, 19);
-       const endStr = end.toISOString().replace('T', ' ').substring(0, 19);
-       statsQuery += ` AND updated_at >= ? AND updated_at <= ?`;
-       statsParams.push(startStr, endStr);
-    }
-    
     const statsRes = await env.DB.prepare(statsQuery).bind(...statsParams).all();
 
     let stats = {
@@ -56,11 +49,25 @@ export async function onRequestGet(context: any) {
     };
 
     for (const o of statsRes.results) {
-       const datePart = o.date ? String(o.date).split(', ')[1] : null;
-       let orderDate = null;
-       if (datePart) {
-          const [month, day, year] = datePart.split('/');
-          orderDate = new Date(Number(year), Number(month) - 1, Number(day));
+       let orderDate: Date | null = null;
+       let datePart: string | null = null;
+       if (o.date) {
+          const str = String(o.date);
+          if (str.includes(', ')) {
+             const parts = str.split(', ');
+             if (parts[1] && parts[1].includes('/')) {
+                datePart = parts[1];
+                const [month, day, year] = parts[1].split('/');
+                orderDate = new Date(Number(year), Number(month) - 1, Number(day));
+             }
+          }
+          if (!orderDate) {
+             const parsed = new Date(str);
+             if (!isNaN(parsed.getTime())) {
+                orderDate = parsed;
+                datePart = `${orderDate.getMonth() + 1}/${orderDate.getDate()}/${orderDate.getFullYear()}`;
+             }
+          }
        }
 
        if (start && end && orderDate) {

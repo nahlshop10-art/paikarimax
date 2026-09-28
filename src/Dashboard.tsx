@@ -45,7 +45,7 @@ import NotificationManager from './NotificationManager';
 import { CopyButton } from './components/CopyButton';
 import AdminLoadingScreen from './components/AdminLoadingScreen';
 import { useScrollLock } from './hooks/useScrollLock';
-import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, closestCenter, rectIntersection, pointerWithin, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent, CollisionDetection } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -467,7 +467,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [isDashboardImageSearching, setIsDashboardImageSearching] = useState(false);
   const [dashboardMatchedIds, setDashboardMatchedIds] = useState<string[]>([]);
   const [dashboardImageError, setDashboardImageError] = useState<string | null>(null);
-  const dashboardFileInputRef = useRef<HTMLInputElement>(null);
+  const dashboardGalleryInputRef = useRef<HTMLInputElement>(null);
+  const dashboardCameraInputRef = useRef<HTMLInputElement>(null);
 
   const processDashboardImageFile = async (file: File | Blob) => {
     setDashboardImageError(null);
@@ -522,7 +523,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       setDashboardImageError(compressErr?.message || 'Could not process this image format.');
     } finally {
       setIsDashboardImageSearching(false);
-      if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
+      if (dashboardGalleryInputRef.current) dashboardGalleryInputRef.current.value = '';
+      if (dashboardCameraInputRef.current) dashboardCameraInputRef.current.value = '';
     }
   };
 
@@ -541,7 +543,8 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setDashboardMatchedIds([]);
     setDashboardImageError(null);
     setIsDashboardImageSearching(false);
-    if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
+    if (dashboardGalleryInputRef.current) dashboardGalleryInputRef.current.value = '';
+    if (dashboardCameraInputRef.current) dashboardCameraInputRef.current.value = '';
   };
 
   const [selectedFilter, setSelectedFilter] = useState('All');
@@ -1929,10 +1932,22 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       {/* Top Bar */}
       {activeTab === 'Products' && perms.sections.products && (
         <div className="flex items-center gap-2 p-4 md:px-8 md:py-5 border-b border-[var(--dash-border)] relative z-50 bg-[var(--dash-bg)]">
+          {/* Gallery / Image upload input */}
           <input 
-            ref={dashboardFileInputRef} 
+            ref={dashboardGalleryInputRef} 
             type="file" 
             accept="image/*" 
+            className="hidden" 
+            onChange={handleDashboardImageUpload} 
+            onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
+          />
+
+          {/* Native Camera input */}
+          <input 
+            ref={dashboardCameraInputRef} 
+            type="file" 
+            accept="image/*" 
+            capture="environment"
             className="hidden" 
             onChange={handleDashboardImageUpload} 
             onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
@@ -1962,13 +1977,24 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 <Loader2 size={18} className="animate-spin text-indigo-600 mr-2 shrink-0" />
               )}
 
+              {/* Native Camera search button */}
               <button
                 type="button"
-                onClick={() => dashboardFileInputRef.current?.click()}
-                title="Search products by image / camera"
-                className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-indigo-600 hover:text-black transition-all shrink-0 cursor-pointer mr-1 relative group"
+                onClick={() => dashboardCameraInputRef.current?.click()}
+                title="Search products by camera (take photo)"
+                className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-indigo-600 hover:text-black transition-all shrink-0 cursor-pointer relative group"
               >
                 <Camera size={19} />
+              </button>
+
+              {/* Gallery Image search button */}
+              <button
+                type="button"
+                onClick={() => dashboardGalleryInputRef.current?.click()}
+                title="Search products by image (upload photo)"
+                className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-indigo-600 hover:text-black transition-all shrink-0 cursor-pointer mr-1 relative group"
+              >
+                <ImageIcon size={19} />
               </button>
 
               <button 
@@ -3750,7 +3776,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       )}
 
       {settingsView === 'categories' && perms.sections.settings && (
-        <CategoriesManager categories={categories} setCategories={setCategories} onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
+        <CategoriesManager categories={categories} setCategories={setCategories} onClose={handleCloseSettingsView} />
       )}
       {settingsView === 'imageSettings' && perms.sections.settings && (
         <ImageSettingsManager onClose={handleCloseSettingsView} themePrimary={websiteSettings.themeColors?.primary} />
@@ -3993,7 +4019,8 @@ function SortableCategoryItem({ category, onClick, isDraggingRef }: SortableCate
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    // CRITICAL: disable transition on active dragging item so it tracks finger 1:1 without lag!
+    transition: isDragging ? undefined : transition,
     zIndex: isDragging ? 50 : 1,
     touchAction: isDragging ? 'none' : 'manipulation',
   };
@@ -4015,14 +4042,14 @@ function SortableCategoryItem({ category, onClick, isDraggingRef }: SortableCate
       {...listeners}
       onClick={handleClick}
       className={cn(
-        "flex flex-col items-center justify-start cursor-pointer select-none group transition-all duration-150 py-1.5",
-        isDragging && "opacity-40 scale-105"
+        "flex flex-col items-center justify-start cursor-pointer select-none group py-1.5",
+        isDragging && "opacity-70 scale-105"
       )}
     >
-      {/* Circular icon container exactly matching reference image */}
+      {/* Circular icon container */}
       <div className={cn(
-        "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--dash-card)] border border-[var(--dash-border)]/80 flex items-center justify-center p-1 shadow-md group-hover:border-indigo-500/60 transition-all relative overflow-hidden",
-        isDragging ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-[var(--dash-bg)] shadow-indigo-500/20" : "group-hover:scale-105 active:scale-95"
+        "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--dash-card)] border border-[var(--dash-border)]/80 flex items-center justify-center p-1 shadow-md transition-all relative overflow-hidden",
+        isDragging ? "ring-2 ring-indigo-500 ring-offset-2 ring-offset-[var(--dash-bg)] shadow-xl shadow-indigo-500/30" : "group-hover:border-indigo-500/60 group-hover:scale-105 active:scale-95"
       )}>
         {category.icon ? (
           <img 
@@ -4045,7 +4072,7 @@ function SortableCategoryItem({ category, onClick, isDraggingRef }: SortableCate
   );
 }
 
-function CategoriesManager({ categories, setCategories, onClose, themePrimary }: { categories: Category[], setCategories: React.Dispatch<React.SetStateAction<Category[]>>, onClose: () => void, themePrimary?: string }) {
+function CategoriesManager({ categories, setCategories, onClose }: { categories: Category[], setCategories: React.Dispatch<React.SetStateAction<Category[]>>, onClose: () => void }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const isDraggingRef = useRef(false);
@@ -4053,10 +4080,19 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
   const scrollRef = useScrollRestore('dashboard-categories');
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 10 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  const collisionDetectionStrategy: CollisionDetection = (args) => {
+    // pointerWithin triggers immediately as soon as finger/cursor touches another category's bounding box
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+    return rectIntersection(args);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -4132,7 +4168,7 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
           {/* Categories Grid with Drag and Drop */}
           <DndContext 
             sensors={sensors} 
-            collisionDetection={closestCenter} 
+            collisionDetection={collisionDetectionStrategy} 
             onDragStart={() => { isDraggingRef.current = true; }}
             onDragEnd={(event) => {
               handleDragEnd(event);
@@ -4174,14 +4210,13 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
           onSave={handleSave}
           onClose={() => { setIsEditing(false); setEditingCategory(null); }}
           onDelete={editingCategory ? () => handleDelete(editingCategory.id) : undefined}
-          themePrimary={themePrimary}
         />
       )}
     </div>
   );
 }
 
-function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary }: { category: Category | null, onSave: (c: Category) => void, onClose: () => void, onDelete?: () => void, themePrimary?: string }) {
+function CategoryEditorModal({ category, onSave, onClose, onDelete }: { category: Category | null, onSave: (c: Category) => void, onClose: () => void, onDelete?: () => void }) {
   const [name, setName] = useState(category ? category.name : '');
   const [icon, setIcon] = useState(category ? category.icon || '' : '');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -4313,13 +4348,12 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
               </div>
             </div>
 
-            {/* Submit button */}
+            {/* Submit button matching Dashboard theme (Website tab indigo color) */}
             <button 
               type="button"
               onClick={handleSave}
               disabled={!name.trim()}
-              style={themePrimary ? { backgroundColor: themePrimary } : undefined}
-              className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg cursor-pointer mt-4"
+              className="w-full py-3.5 rounded-xl sm:rounded-2xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/30 cursor-pointer mt-4"
             >
               {category ? 'Update' : 'Create Category'}
             </button>

@@ -102,8 +102,14 @@ export const queueGA4ServerEvent = (clientId: string, eventPayload: any, userDat
 
 const checkImmediateFlush = (eventName: string) => {
   const normalized = eventName.toLowerCase();
-  // Flush on Purchase or InitiateCheckout immediately
-  if (normalized === 'purchase' || normalized === 'initiatecheckout' || normalized === 'initiate_checkout' || typeof window !== 'undefined' && window.location.pathname === '/checkout') {
+  // Flush on Purchase or InitiateCheckout/begin_checkout immediately
+  if (
+    normalized === 'purchase' || 
+    normalized === 'initiatecheckout' || 
+    normalized === 'initiate_checkout' || 
+    normalized === 'begin_checkout' || 
+    (typeof window !== 'undefined' && window.location.pathname === '/checkout')
+  ) {
     flushEvents();
   }
 };

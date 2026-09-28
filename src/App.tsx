@@ -11,13 +11,12 @@ import { restoreOrderStock, deductOrderStock, notifyMasterStockSync, adjustOrder
 import { cloudStore } from './lib/cloudStore';
 import { CopyButton } from './components/CopyButton';
 import { Product, CartItem, Order, OrderStatus, Category, WebsiteSettings, MarketingSettings, CourierSettings, PriceCalculatorSettings, IncompleteOrder, IncompleteOrderStatus } from './types';
-import { PRODUCTS, CATEGORIES as DEFAULT_CATEGORIES } from './data';
 import { initMetaPixel, trackMetaEvent } from './lib/metaPixel';
 import { initTikTokPixel, trackTikTokEvent } from './lib/tiktokPixel';
 import { initGA4, trackGA4Event } from './lib/ga4Pixel';
 import { initBatcher, setBatchingInterval } from './lib/eventBatcher';
 import { BannerSlider, FilterDropdown, Sidebar, SearchModal, ColorModal, CartModal, DesktopRightSidebar, CheckoutModal, OrderDetailsModal, ThankYouModal, ImagePreviewModal } from './AppComponents';
-import { getCartTotal, calculateItemDiscount, calculateProductDiscount } from './lib/pricingUtils';
+import { getCartTotal, calculateProductDiscount } from './lib/pricingUtils';
 import { isProductInStock } from './lib/stockUtils';
 import MinOrderPopup from './MinOrderPopup';
 import ProductDetails from './ProductDetails';
@@ -37,7 +36,7 @@ import { StorefrontProductsGrid } from './components/StorefrontProductsGrid';
 
 export default function App() {
   const [isCloudLoading, setIsCloudLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
   useEffect(() => {
@@ -236,7 +235,7 @@ export default function App() {
   }, [websiteSettings?.eventBatchingInterval, marketingSettings?.pixelBatch?.enabled, marketingSettings?.pixelBatch?.intervalSeconds]);
 
 
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const productsRef = useRef(products);
   useEffect(() => {
     productsRef.current = products;

@@ -50,10 +50,6 @@ export function getProductQtyRules(
   return [];
 }
 
-export function calculateItemDiscount(item: CartItem, productTotalQty: number, globalRules?: GlobalQtyRules): number {
-  return calculateProductDiscount(item.product, productTotalQty, item.variantId, globalRules);
-}
-
 export function getCartTotal(cart: CartItem[], globalRules?: GlobalQtyRules): { 
   total: number, 
   itemDiscounts: Record<string, number> 
@@ -68,7 +64,7 @@ export function getCartTotal(cart: CartItem[], globalRules?: GlobalQtyRules): {
 
   cart.forEach(item => {
     const productTotalQty = productQuantities[item.product.id] || 0;
-    const discountPerPiece = calculateItemDiscount(item, productTotalQty, globalRules);
+    const discountPerPiece = calculateProductDiscount(item.product, productTotalQty, item.variantId, globalRules);
     itemDiscounts[item.id] = discountPerPiece;
     
     const basePrice = item.variantPrice ?? item.product.price;

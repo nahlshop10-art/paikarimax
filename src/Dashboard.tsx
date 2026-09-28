@@ -534,15 +534,10 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   };
 
   const handleOpenDashboardCamera = () => {
-    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-      dashboardCameraInputRef.current?.click();
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      setShowLiveCameraModal(true);
     } else {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        setShowLiveCameraModal(true);
-      } else {
-        dashboardCameraInputRef.current?.click();
-      }
+      dashboardCameraInputRef.current?.click();
     }
   };
 
@@ -2321,7 +2316,13 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             {showPresetDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowPresetDropdown(false)} />
-                <div className="absolute top-full left-0 mt-2 w-52 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-50 py-2 max-h-[70vh] overflow-y-auto no-scrollbar divide-y divide-[var(--dash-border)]/20 backdrop-blur-md">
+                <div 
+                  className="absolute top-full left-0 mt-2 w-48 sm:w-52 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-50 p-1.5 max-h-56 sm:max-h-60 overflow-y-auto overscroll-contain backdrop-blur-md space-y-0.5"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: 'rgba(255,255,255,0.2) transparent'
+                  }}
+                >
                   {[
                     'Today',
                     'Yesterday',
@@ -2344,12 +2345,12 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                         setShowPresetDropdown(false);
                       }}
                       className={cn(
-                        "w-full text-left px-4 py-2.5 text-xs sm:text-sm hover:bg-[var(--dash-border)]/60 flex items-center justify-between cursor-pointer transition-colors",
-                        dateRangePreset === preset ? "text-indigo-400 font-semibold bg-indigo-500/10" : "text-gray-300 hover:text-white"
+                        "w-full text-left px-3 py-2 rounded-xl text-xs sm:text-[13px] flex items-center justify-between cursor-pointer transition-all duration-150",
+                        dateRangePreset === preset ? "text-indigo-400 font-semibold bg-indigo-500/15" : "text-gray-300 hover:text-white hover:bg-[var(--dash-border)]/50"
                       )}
                     >
-                      <span>{preset}</span>
-                      {dateRangePreset === preset && <Check size={16} className="text-indigo-400 shrink-0" />}
+                      <span className="truncate">{preset}</span>
+                      {dateRangePreset === preset && <Check size={14} className="text-indigo-400 shrink-0 ml-1.5" />}
                     </button>
                   ))}
                 </div>
@@ -3961,17 +3962,23 @@ function DashboardLiveCameraModal({ onClose, onCapture, onFallbackUpload }: Dash
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 960 }
+            width: { ideal: 1920, min: 640 },
+            height: { ideal: 1080, min: 480 }
           },
           audio: false
         });
       } catch (err1) {
-        // Fallback without exact constraints
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: mode },
+            audio: false
+          });
+        } catch (err2) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        }
       }
 
       streamRef.current = stream;
@@ -4008,6 +4015,12 @@ function DashboardLiveCameraModal({ onClose, onCapture, onFallbackUpload }: Dash
     if (!videoRef.current || !canvasRef.current || isShutterActive) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(35);
+      }
+    } catch {}
 
     setIsShutterActive(true);
 

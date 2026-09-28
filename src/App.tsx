@@ -169,6 +169,13 @@ export default function App() {
 
 
   const [marketingSettings, setMarketingSettings] = useState<MarketingSettings>(() => {
+    try {
+      const cached = localStorage.getItem('paikarix_marketing_settings');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.metaPixel) return parsed;
+      }
+    } catch (e) {}
     return {
       metaPixel: {
         enabled: false,
@@ -188,6 +195,16 @@ export default function App() {
       }
     };
   });
+
+  const marketingSettingsRef = useRef(marketingSettings);
+  useEffect(() => {
+    marketingSettingsRef.current = marketingSettings;
+    try {
+      if (marketingSettings && marketingSettings.metaPixel) {
+        localStorage.setItem('paikarix_marketing_settings', JSON.stringify(marketingSettings));
+      }
+    } catch (e) {}
+  }, [marketingSettings]);
 
 
   // Initialize Pixels
@@ -215,6 +232,10 @@ export default function App() {
 
 
   const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const productsRef = useRef(products);
+  useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
   const [productsLoaded, setProductsLoaded] = useState(false);
 
   const handleCategoryChange = (cat: string) => {
@@ -239,6 +260,10 @@ export default function App() {
       return [];
     }
   });
+  const cartRef = useRef(cart);
+  useEffect(() => {
+    cartRef.current = cart;
+  }, [cart]);
   const [incompleteOrders, setIncompleteOrders] = useState<any[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [myOrderIds, setMyOrderIds] = useState<string[]>(() => {
@@ -502,10 +527,22 @@ export default function App() {
     // Only send PageView on the main product landing page ('/')
     // and only send ONE single PageView event per visit/session
     if (location.pathname === '/') {
-      hasSentPageViewRef.current = true;
-      trackMetaEvent('PageView', {}, marketingSettings.metaPixel);
-      trackTikTokEvent('Pageview', {}, marketingSettings.tiktokPixel);
-      trackGA4Event('page_view', {}, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
+      const activeMeta = marketingSettingsRef.current?.metaPixel || marketingSettings.metaPixel;
+      const activeTiktok = marketingSettingsRef.current?.tiktokPixel || marketingSettings.tiktokPixel;
+      const activeGa4 = marketingSettingsRef.current?.ga4 || marketingSettings.ga4;
+
+      if ((activeMeta && activeMeta.enabled) || (activeTiktok && activeTiktok.enabled) || (activeGa4 && activeGa4.enabled)) {
+        hasSentPageViewRef.current = true;
+        if (activeMeta && activeMeta.enabled) {
+          trackMetaEvent('PageView', {}, activeMeta);
+        }
+        if (activeTiktok && activeTiktok.enabled) {
+          trackTikTokEvent('Pageview', {}, activeTiktok);
+        }
+        if (activeGa4 && activeGa4.enabled) {
+          trackGA4Event('page_view', {}, null, activeGa4);
+        }
+      }
     }
   }, [location.pathname, productsLoaded, categoriesLoaded, marketingSettings.metaPixel, marketingSettings.tiktokPixel, marketingSettings.ga4]);
 
@@ -620,11 +657,12 @@ export default function App() {
   };
 
   // Handlers
-  const addToCart = (product: Product, color?: string, variantId?: string, quantity: number = 1, variantName?: string, variantPrice?: number, variantBuyPrice?: number) => {
+  const addToCart = React.useCallback((product: Product, color?: string, variantId?: string, quantity: number = 1, variantName?: string, variantPrice?: number, variantBuyPrice?: number) => {
     const id = variantId ? `${product.id}-${variantId}` : color ? `${product.id}-${color}` : product.id;
     
     // Compute total available stock from live product state
-    const liveProduct = products.find(p => p.id === product.id) || product;
+    const currentProducts = productsRef.current || [];
+    const liveProduct = currentProducts.find(p => p.id === product.id) || product;
     const availableStock = getAvailableStock(liveProduct, variantId);
     
     if (availableStock <= 0) {
@@ -632,7 +670,8 @@ export default function App() {
       return;
     }
 
-    const existing = cart.find(item => item.id === id);
+    const currentCart = cartRef.current || [];
+    const existing = currentCart.find(item => item.id === id);
     const currentQty = existing ? existing.quantity : 0;
     
     if (currentQty >= availableStock) {
@@ -653,43 +692,53 @@ export default function App() {
       return [...prev, { id, product: liveProduct, quantity: Math.min(availableStock, quantity), color, variantId, variantName, variantPrice, variantBuyPrice }];
     });
     
-    trackMetaEvent('AddToCart', {
-      content_ids: [product.id],
-      contents: [{ id: product.id, quantity: 1 }],
-      content_type: 'product',
-      value: variantPrice ?? product.price,
-      currency: 'BDT'
-    }, marketingSettings.metaPixel);
-
-    trackTikTokEvent('AddToCart', {
-      contents: [{
-        content_id: product.id,
+    const activeMeta = marketingSettingsRef.current?.metaPixel || marketingSettings.metaPixel;
+    if (activeMeta && activeMeta.enabled) {
+      trackMetaEvent('AddToCart', {
+        content_ids: [product.id],
+        contents: [{ id: product.id, quantity: quantity || 1 }],
         content_type: 'product',
-        price: variantPrice ?? product.price,
-        quantity
-      }],
-      value: variantPrice ?? product.price,
-      currency: 'BDT'
-    }, marketingSettings.tiktokPixel);
+        value: (variantPrice ?? product.price) * (quantity || 1),
+        currency: 'BDT'
+      }, activeMeta);
+    }
 
-    trackGA4Event('add_to_cart', {
-      currency: 'BDT',
-      value: (variantPrice ?? product.price) * quantity,
-      items: [
-        {
-          item_id: product.id,
-          item_name: product.title,
+    const activeTiktok = marketingSettingsRef.current?.tiktokPixel || marketingSettings.tiktokPixel;
+    if (activeTiktok && activeTiktok.enabled) {
+      trackTikTokEvent('AddToCart', {
+        contents: [{
+          content_id: product.id,
+          content_type: 'product',
           price: variantPrice ?? product.price,
-          quantity: quantity
-        }
-      ]
-    }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
-  };
+          quantity: quantity || 1
+        }],
+        value: (variantPrice ?? product.price) * (quantity || 1),
+        currency: 'BDT'
+      }, activeTiktok);
+    }
 
-  const updateQuantity = (cartItemId: string, value: number, isDelta: boolean = true) => {
+    const activeGa4 = marketingSettingsRef.current?.ga4 || marketingSettings.ga4;
+    if (activeGa4 && activeGa4.enabled) {
+      trackGA4Event('add_to_cart', {
+        currency: 'BDT',
+        value: (variantPrice ?? product.price) * (quantity || 1),
+        items: [
+          {
+            item_id: product.id,
+            item_name: product.title,
+            price: variantPrice ?? product.price,
+            quantity: quantity || 1
+          }
+        ]
+      }, null, activeGa4);
+    }
+  }, []);
+
+  const updateQuantity = React.useCallback((cartItemId: string, value: number, isDelta: boolean = true) => {
     setCart(prev => prev.map(item => {
       if (item.id === cartItemId) {
-        const liveProduct = products.find(p => p.id === item.product?.id) || item.product;
+        const currentProducts = productsRef.current || [];
+        const liveProduct = currentProducts.find(p => p.id === item.product?.id) || item.product;
         const availableStock = getAvailableStock(liveProduct, item.variantId);
         
         if (availableStock <= 0) {
@@ -709,11 +758,11 @@ export default function App() {
       }
       return item;
     }));
-  };
+  }, []);
 
-  const removeFromCart = (cartItemId: string) => {
+  const removeFromCart = React.useCallback((cartItemId: string) => {
     setCart(prev => prev.filter(item => item.id !== cartItemId));
-  };
+  }, []);
 
   const handleAddToOrderTemp = (product: Product, color?: any, variantId?: string, quantity: number = 1, variantName?: string, variantPrice?: number, variantBuyPrice?: number) => {
     const liveProduct = products.find(p => p.id === product.id) || product;
@@ -781,7 +830,7 @@ export default function App() {
     } else {
       removeFromCart(id);
     }
-  }, [addingToOrderId]);
+  }, [addingToOrderId, removeFromCart]);
 
   const handleUpdateProductQuantity = React.useCallback((id: string, val: number, isDelta: boolean = true) => {
     if (addingToOrderId) {
@@ -789,7 +838,7 @@ export default function App() {
     } else {
       updateQuantity(id, val, isDelta);
     }
-  }, [addingToOrderId]);
+  }, [addingToOrderId, updateQuantity]);
 
   const handleAddProduct = React.useCallback((p: Product) => {
     if (p.hasVariants && p.variants && p.variants.length > 0) {
@@ -801,40 +850,49 @@ export default function App() {
     } else {
       addToCart(p);
     }
-  }, [addingToOrderId]);
+  }, [addingToOrderId, addToCart]);
 
   const handleSelectProduct = React.useCallback((p: Product) => {
     setSelectedProductForDetails(p);
-    trackMetaEvent('ViewContent', {
-      content_ids: [p.id],
-      contents: [{ id: p.id, quantity: 1 }],
-      content_type: 'product',
-      value: p.price,
-      currency: 'BDT'
-    }, marketingSettings.metaPixel);
-
-    trackTikTokEvent('ViewContent', {
-      contents: [{
-        content_id: p.id,
+    const activeMeta = marketingSettingsRef.current?.metaPixel || marketingSettings.metaPixel;
+    if (activeMeta && activeMeta.enabled) {
+      trackMetaEvent('ViewContent', {
+        content_ids: [p.id],
+        contents: [{ id: p.id, quantity: 1 }],
         content_type: 'product',
-        price: p.price,
-        quantity: 1
-      }],
-      value: p.price,
-      currency: 'BDT'
-    }, marketingSettings.tiktokPixel);
+        value: p.price,
+        currency: 'BDT'
+      }, activeMeta);
+    }
 
-    trackGA4Event('view_item', {
-      currency: 'BDT',
-      value: p.price,
-      items: [{
-        item_id: p.id,
-        item_name: p.title,
-        price: p.price,
-        quantity: 1
-      }]
-    }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
-  }, [marketingSettings.metaPixel, marketingSettings.tiktokPixel, marketingSettings.ga4]);
+    const activeTiktok = marketingSettingsRef.current?.tiktokPixel || marketingSettings.tiktokPixel;
+    if (activeTiktok && activeTiktok.enabled) {
+      trackTikTokEvent('ViewContent', {
+        contents: [{
+          content_id: p.id,
+          content_type: 'product',
+          price: p.price,
+          quantity: 1
+        }],
+        value: p.price,
+        currency: 'BDT'
+      }, activeTiktok);
+    }
+
+    const activeGa4 = marketingSettingsRef.current?.ga4 || marketingSettings.ga4;
+    if (activeGa4 && activeGa4.enabled) {
+      trackGA4Event('view_item', {
+        currency: 'BDT',
+        value: p.price,
+        items: [{
+          item_id: p.id,
+          item_name: p.title,
+          price: p.price,
+          quantity: 1
+        }]
+      }, null, activeGa4);
+    }
+  }, []);
 
   const confirmAddToCartItemsToOrder = () => {
     if (!addingToOrderId || addingToOrderItems.length === 0) return;
@@ -965,36 +1023,45 @@ export default function App() {
 
     setCartOpen(false); 
     setCheckoutOpen(true); 
-    trackMetaEvent('InitiateCheckout', {
-      content_ids: cart.map(item => item.product.id),
-      contents: cart.map(item => ({ id: item.product.id, quantity: item.quantity })),
-      content_type: 'product',
-      value: cartTotalPrice,
-      currency: 'BDT',
-      num_items: cartTotalItems
-    }, marketingSettings.metaPixel);
-
-    trackTikTokEvent('InitiateCheckout', {
-      contents: cart.map(item => ({
-        content_id: item.product.id,
+    const activeMeta = marketingSettingsRef.current?.metaPixel || marketingSettings.metaPixel;
+    if (activeMeta && activeMeta.enabled) {
+      trackMetaEvent('InitiateCheckout', {
+        content_ids: cart.map(item => item.product.id),
+        contents: cart.map(item => ({ id: item.product.id, quantity: item.quantity })),
         content_type: 'product',
-        price: item.product.price,
-        quantity: item.quantity
-      })),
-      value: cartTotalPrice,
-      currency: 'BDT'
-    }, marketingSettings.tiktokPixel);
+        value: cartTotalPrice,
+        currency: 'BDT',
+        num_items: cartTotalItems
+      }, activeMeta);
+    }
 
-    trackGA4Event('begin_checkout', {
-      currency: 'BDT',
-      value: cartTotalPrice,
-      items: cart.map(item => ({
-        item_id: item.product.id,
-        item_name: item.product.title,
-        price: item.product.price,
-        quantity: item.quantity
-      }))
-    }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
+    const activeTiktok = marketingSettingsRef.current?.tiktokPixel || marketingSettings.tiktokPixel;
+    if (activeTiktok && activeTiktok.enabled) {
+      trackTikTokEvent('InitiateCheckout', {
+        contents: cart.map(item => ({
+          content_id: item.product.id,
+          content_type: 'product',
+          price: item.product.price,
+          quantity: item.quantity
+        })),
+        value: cartTotalPrice,
+        currency: 'BDT'
+      }, activeTiktok);
+    }
+
+    const activeGa4 = marketingSettingsRef.current?.ga4 || marketingSettings.ga4;
+    if (activeGa4 && activeGa4.enabled) {
+      trackGA4Event('begin_checkout', {
+        currency: 'BDT',
+        value: cartTotalPrice,
+        items: cart.map(item => ({
+          item_id: item.product.id,
+          item_name: item.product.title,
+          price: item.product.price,
+          quantity: item.quantity
+        }))
+      }, null, activeGa4);
+    }
   };
 
   const placeOrder = async (userInfo: any, deliveryCharge: number, discountAmount: number = 0, discountName: string = '', discountId?: string) => {
@@ -1147,35 +1214,41 @@ export default function App() {
 
     sendTelegramNotification('NEW_ORDER', serverOrder, websiteSettings);
 
-    trackMetaEvent('Purchase', {
-      content_ids: cart.map(item => item.product.id),
-      contents: cart.map(item => ({ id: item.product.id, quantity: item.quantity })),
-      content_type: 'product',
-      value: serverOrder.total,
-      currency: 'BDT',
-      num_items: cartTotalItems
-    }, marketingSettings.metaPixel, {
-      ph: userInfo.phone,
-      em: userInfo.email,
-      fn: fn,
-      ln: ln,
-      external_id: userInfo.phone // using phone as external ID if no user ID
-    });
-
-    trackTikTokEvent('PlaceAnOrder', {
-      contents: cart.map(item => ({
-        content_id: item.product.id,
+    const activeMeta = marketingSettingsRef.current?.metaPixel || marketingSettings.metaPixel;
+    if (activeMeta && activeMeta.enabled) {
+      trackMetaEvent('Purchase', {
+        content_ids: cart.map(item => item.product.id),
+        contents: cart.map(item => ({ id: item.product.id, quantity: item.quantity })),
         content_type: 'product',
-        price: item.product.price,
-        quantity: item.quantity
-      })),
-      value: serverOrder.total,
-      currency: 'BDT'
-    }, marketingSettings.tiktokPixel, {
-      ph: userInfo.phone,
-      em: userInfo.email,
-      external_id: userInfo.phone // using phone as external ID if no user ID
-    });
+        value: serverOrder.total,
+        currency: 'BDT',
+        num_items: cartTotalItems
+      }, activeMeta, {
+        ph: userInfo.phone,
+        em: userInfo.email,
+        fn: fn,
+        ln: ln,
+        external_id: userInfo.phone // using phone as external ID if no user ID
+      });
+    }
+
+    const activeTiktok = marketingSettingsRef.current?.tiktokPixel || marketingSettings.tiktokPixel;
+    if (activeTiktok && activeTiktok.enabled) {
+      trackTikTokEvent('PlaceAnOrder', {
+        contents: cart.map(item => ({
+          content_id: item.product.id,
+          content_type: 'product',
+          price: item.product.price,
+          quantity: item.quantity
+        })),
+        value: serverOrder.total,
+        currency: 'BDT'
+      }, activeTiktok, {
+        ph: userInfo.phone,
+        em: userInfo.email,
+        external_id: userInfo.phone // using phone as external ID if no user ID
+      });
+    }
 
     trackGA4Event('purchase', {
       transaction_id: serverOrder.id,
@@ -1699,35 +1772,44 @@ export default function App() {
             websiteSettings={websiteSettings}
             onProductClick={(p) => {
               navigate(`/product/${p.id}`, { state: { internalUiObj: true } });
-              trackMetaEvent('ViewContent', {
-                content_ids: [p.id],
-                contents: [{ id: p.id, quantity: 1 }],
-                content_type: 'product',
-                value: p.price,
-                currency: 'BDT'
-              }, marketingSettings.metaPixel);
-
-              trackTikTokEvent('ViewContent', {
-                contents: [{
-                  content_id: p.id,
+              const activeMeta = marketingSettingsRef.current?.metaPixel || marketingSettings.metaPixel;
+              if (activeMeta && activeMeta.enabled) {
+                trackMetaEvent('ViewContent', {
+                  content_ids: [p.id],
+                  contents: [{ id: p.id, quantity: 1 }],
                   content_type: 'product',
-                  price: p.price,
-                  quantity: 1
-                }],
-                value: p.price,
-                currency: 'BDT'
-              }, marketingSettings.tiktokPixel);
+                  value: p.price,
+                  currency: 'BDT'
+                }, activeMeta);
+              }
 
-              trackGA4Event('view_item', {
-                currency: 'BDT',
-                value: p.price,
-                items: [{
-                  item_id: p.id,
-                  item_name: p.title,
-                  price: p.price,
-                  quantity: 1
-                }]
-              }, null, marketingSettings.ga4 || { enabled: false, measurementId: '', apiSecret: '' });
+              const activeTiktok = marketingSettingsRef.current?.tiktokPixel || marketingSettings.tiktokPixel;
+              if (activeTiktok && activeTiktok.enabled) {
+                trackTikTokEvent('ViewContent', {
+                  contents: [{
+                    content_id: p.id,
+                    content_type: 'product',
+                    price: p.price,
+                    quantity: 1
+                  }],
+                  value: p.price,
+                  currency: 'BDT'
+                }, activeTiktok);
+              }
+
+              const activeGa4 = marketingSettingsRef.current?.ga4 || marketingSettings.ga4;
+              if (activeGa4 && activeGa4.enabled) {
+                trackGA4Event('view_item', {
+                  currency: 'BDT',
+                  value: p.price,
+                  items: [{
+                    item_id: p.id,
+                    item_name: p.title,
+                    price: p.price,
+                    quantity: 1
+                  }]
+                }, null, activeGa4);
+              }
             }}
           />
         )}

@@ -38,6 +38,11 @@ export const setBatchingInterval = (seconds?: number) => {
   const ms = (seconds !== undefined && seconds !== null ? Math.max(0, seconds) : 35) * 1000;
   if (currentBatchIntervalMs !== ms) {
     currentBatchIntervalMs = ms;
+    if (ms <= 0 && batchTimeoutId) {
+      clearTimeout(batchTimeoutId);
+      batchTimeoutId = null;
+      flushEvents();
+    }
   }
 };
 
@@ -161,12 +166,16 @@ export const flushEvents = async () => {
   if (mServer.length > 0) {
     try {
       const payload = { events: mServer.map(e => e.event) };
-      await fetch('/api/facebook', {
+      const res = await fetch('/api/facebook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         keepalive: true
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn('Meta batch response not ok:', res.status, errText);
+      }
     } catch (e) {
       console.error('Meta batch error', e);
     }

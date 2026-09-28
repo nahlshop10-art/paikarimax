@@ -45,6 +45,9 @@ import NotificationManager from './NotificationManager';
 import { CopyButton } from './components/CopyButton';
 import AdminLoadingScreen from './components/AdminLoadingScreen';
 import { useScrollLock } from './hooks/useScrollLock';
+import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface DashboardProps {
   products: Product[];
@@ -464,9 +467,7 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
   const [isDashboardImageSearching, setIsDashboardImageSearching] = useState(false);
   const [dashboardMatchedIds, setDashboardMatchedIds] = useState<string[]>([]);
   const [dashboardImageError, setDashboardImageError] = useState<string | null>(null);
-  const [showLiveCameraModal, setShowLiveCameraModal] = useState(false);
   const dashboardFileInputRef = useRef<HTMLInputElement>(null);
-  const dashboardCameraInputRef = useRef<HTMLInputElement>(null);
 
   const processDashboardImageFile = async (file: File | Blob) => {
     setDashboardImageError(null);
@@ -522,7 +523,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     } finally {
       setIsDashboardImageSearching(false);
       if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
-      if (dashboardCameraInputRef.current) dashboardCameraInputRef.current.value = '';
     }
   };
 
@@ -531,14 +531,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     if (!file) return;
     if (e.target) e.target.value = '';
     await processDashboardImageFile(file);
-  };
-
-  const handleOpenDashboardCamera = () => {
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      setShowLiveCameraModal(true);
-    } else {
-      dashboardCameraInputRef.current?.click();
-    }
   };
 
   const handleClearDashboardImage = () => {
@@ -550,7 +542,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
     setDashboardImageError(null);
     setIsDashboardImageSearching(false);
     if (dashboardFileInputRef.current) dashboardFileInputRef.current.value = '';
-    if (dashboardCameraInputRef.current) dashboardCameraInputRef.current.value = '';
   };
 
   const [selectedFilter, setSelectedFilter] = useState('All');
@@ -1946,16 +1937,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
             onChange={handleDashboardImageUpload} 
             onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
           />
-          <input 
-            ref={dashboardCameraInputRef} 
-            type="file" 
-            accept="image/*" 
-            capture="environment"
-            className="hidden" 
-            onChange={handleDashboardImageUpload} 
-            onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ''; }}
-          />
-
           {topBarMode === 'search' ? (
           <div className="flex-grow flex items-center gap-2 z-10 relative">
             <div 
@@ -1981,24 +1962,13 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
                 <Loader2 size={18} className="animate-spin text-indigo-600 mr-2 shrink-0" />
               )}
 
-              {/* Camera Search Button */}
-              <button
-                type="button"
-                onClick={handleOpenDashboardCamera}
-                title="Search by camera photo"
-                className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-indigo-600 hover:text-black transition-all shrink-0 cursor-pointer mr-0.5 relative group"
-              >
-                <Camera size={18} />
-              </button>
-
-              {/* Image Upload Button */}
               <button
                 type="button"
                 onClick={() => dashboardFileInputRef.current?.click()}
-                title="Search by image from files"
+                title="Search products by image / camera"
                 className="w-8 h-8 rounded-full hover:bg-gray-100 active:scale-95 flex items-center justify-center text-indigo-600 hover:text-black transition-all shrink-0 cursor-pointer mr-1 relative group"
               >
-                <ImageIcon size={18} />
+                <Camera size={19} />
               </button>
 
               <button 
@@ -2317,10 +2287,10 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowPresetDropdown(false)} />
                 <div 
-                  className="absolute top-full left-0 mt-2 w-48 sm:w-52 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-50 p-1.5 max-h-56 sm:max-h-60 overflow-y-auto overscroll-contain backdrop-blur-md space-y-0.5"
+                  className="absolute top-full left-0 mt-2 w-48 sm:w-52 bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-2xl shadow-2xl z-50 p-1.5 max-h-56 sm:max-h-60 overflow-y-auto overscroll-contain no-scrollbar backdrop-blur-md space-y-0.5"
                   style={{
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: 'rgba(255,255,255,0.2) transparent'
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
                   }}
                 >
                   {[
@@ -3875,19 +3845,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
       {settingsView === 'preOrder' && perms.sections.settings && (
         <PreOrderManager websiteSettings={websiteSettings} setWebsiteSettings={setWebsiteSettings} onClose={handleCloseSettingsView} />
       )}
-      {showLiveCameraModal && (
-        <DashboardLiveCameraModal
-          onClose={() => setShowLiveCameraModal(false)}
-          onCapture={(blob) => {
-            setShowLiveCameraModal(false);
-            processDashboardImageFile(blob);
-          }}
-          onFallbackUpload={() => {
-            setShowLiveCameraModal(false);
-            dashboardFileInputRef.current?.click();
-          }}
-        />
-      )}
       {activeTab === 'Orders' && selectedOrders.length > 0 && (
         <div className="fixed left-[-9999px] top-0 pointer-events-none z-[-100]">
           {selectedOrders.map(orderId => {
@@ -3904,287 +3861,6 @@ export default function Dashboard({ products, setProducts, orders, setOrders, in
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-interface DashboardLiveCameraModalProps {
-  onClose: () => void;
-  onCapture: (blob: Blob) => void;
-  onFallbackUpload: () => void;
-}
-
-function DashboardLiveCameraModal({ onClose, onCapture, onFallbackUpload }: DashboardLiveCameraModalProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
-  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
-  const [isLoadingCamera, setIsLoadingCamera] = useState(true);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [isShutterActive, setIsShutterActive] = useState(false);
-
-  // Stop media tracks cleanly
-  const stopStream = () => {
-    if (streamRef.current) {
-      try {
-        streamRef.current.getTracks().forEach(track => {
-          try { track.stop(); } catch {}
-        });
-      } catch {}
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  const startCamera = async (mode: 'environment' | 'user') => {
-    setIsLoadingCamera(true);
-    setCameraError(null);
-    stopStream();
-
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera is not supported on this browser or connection is insecure (requires HTTPS).');
-      }
-
-      // Check available cameras to decide if flip button should show
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = devices.filter(d => d.kind === 'videoinput');
-        setHasMultipleCameras(videoInputs.length > 1);
-      } catch {}
-
-      let stream: MediaStream | null = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: mode },
-            width: { ideal: 1920, min: 640 },
-            height: { ideal: 1080, min: 480 }
-          },
-          audio: false
-        });
-      } catch (err1) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: mode },
-            audio: false
-          });
-        } catch (err2) {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: false
-          });
-        }
-      }
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
-      }
-      setIsLoadingCamera(false);
-    } catch (err: any) {
-      console.error('Camera access error:', err);
-      let msg = 'Could not access camera. Please allow camera permissions in your browser or select an image from files.';
-      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-        msg = 'Camera permission was denied. Please allow camera access in browser site settings.';
-      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
-        msg = 'No camera found on this device.';
-      }
-      setCameraError(msg);
-      setIsLoadingCamera(false);
-    }
-  };
-
-  useEffect(() => {
-    startCamera(facingMode);
-    return () => {
-      stopStream();
-    };
-  }, [facingMode]);
-
-  const handleFlipCamera = () => {
-    setFacingMode(prev => (prev === 'environment' ? 'user' : 'environment'));
-  };
-
-  const handleTakePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || isShutterActive) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(35);
-      }
-    } catch {}
-
-    setIsShutterActive(true);
-
-    const width = video.videoWidth || 640;
-    const height = video.videoHeight || 480;
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setIsShutterActive(false);
-      return;
-    }
-
-    ctx.drawImage(video, 0, 0, width, height);
-
-    canvas.toBlob(
-      (blob) => {
-        setIsShutterActive(false);
-        if (blob) {
-          stopStream();
-          onCapture(blob);
-        } else {
-          alert('Failed to capture photo frame. Please try again.');
-        }
-      },
-      'image/jpeg',
-      0.92
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-[var(--dash-card)] border border-[var(--dash-border)]/90 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--dash-border)]/60 bg-[var(--dash-bg)]/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-              <Camera size={17} />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white flex items-center gap-2">
-                <span>Camera Search</span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1" />
-                  Live
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-400">Snap product or barcode to search instantly</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              stopStream();
-              onClose();
-            }}
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-            title="Close camera"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Viewfinder Viewport */}
-        <div className="relative bg-black aspect-[4/3] w-full flex items-center justify-center overflow-hidden">
-          {cameraError ? (
-            <div className="p-6 text-center space-y-3 z-10">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
-                <Camera size={24} />
-              </div>
-              <p className="text-xs text-rose-300 max-w-xs leading-relaxed">{cameraError}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  stopStream();
-                  onFallbackUpload();
-                }}
-                className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-lg shadow-indigo-600/20"
-              >
-                <ImageIcon size={14} />
-                <span>Upload Photo from Files</span>
-              </button>
-            </div>
-          ) : (
-            <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className={cn(
-                  "w-full h-full object-cover transition-opacity duration-300",
-                  isLoadingCamera ? "opacity-0" : "opacity-100",
-                  facingMode === 'user' ? "-scale-x-100" : ""
-                )}
-              />
-
-              {/* Viewfinder Corner Overlays */}
-              <div className="absolute inset-6 pointer-events-none border border-white/15 rounded-2xl flex flex-col justify-between p-2">
-                <div className="flex justify-between">
-                  <div className="w-5 h-5 border-t-2 border-l-2 border-indigo-400 rounded-tl-lg" />
-                  <div className="w-5 h-5 border-t-2 border-r-2 border-indigo-400 rounded-tr-lg" />
-                </div>
-                <div className="flex justify-between">
-                  <div className="w-5 h-5 border-b-2 border-l-2 border-indigo-400 rounded-bl-lg" />
-                  <div className="w-5 h-5 border-b-2 border-r-2 border-indigo-400 rounded-br-lg" />
-                </div>
-              </div>
-
-              {/* Shutter Flash Animation */}
-              {isShutterActive && (
-                <div className="absolute inset-0 bg-white pointer-events-none animate-out fade-out duration-300" />
-              )}
-
-              {isLoadingCamera && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 z-10 text-gray-300">
-                  <Loader2 size={28} className="animate-spin text-indigo-400" />
-                  <span className="text-xs tracking-wide">Starting camera lens...</span>
-                </div>
-              )}
-            </>
-          )}
-
-          <canvas ref={canvasRef} className="hidden" />
-        </div>
-
-        {/* Controls Footer */}
-        <div className="px-6 py-4 bg-[var(--dash-bg)]/80 border-t border-[var(--dash-border)]/60 flex items-center justify-between">
-          {/* Flip Camera */}
-          <button
-            type="button"
-            onClick={handleFlipCamera}
-            disabled={isLoadingCamera || !!cameraError}
-            title="Switch front/back camera"
-            className="w-11 h-11 rounded-2xl bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] text-gray-300 hover:text-white flex items-center justify-center transition-all active:scale-95 disabled:opacity-40 cursor-pointer"
-          >
-            <SwitchCamera size={19} />
-          </button>
-
-          {/* Shutter Button */}
-          <button
-            type="button"
-            onClick={handleTakePhoto}
-            disabled={isLoadingCamera || !!cameraError || isShutterActive}
-            title="Take snapshot to search"
-            className="w-16 h-16 rounded-full border-4 border-white/80 p-1 flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg shadow-black/40 group"
-          >
-            <div className="w-full h-full rounded-full bg-white group-hover:bg-indigo-500 transition-colors" />
-          </button>
-
-          {/* Pick file fallback */}
-          <button
-            type="button"
-            onClick={() => {
-              stopStream();
-              onFallbackUpload();
-            }}
-            title="Choose image from device"
-            className="w-11 h-11 rounded-2xl bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] text-gray-300 hover:text-white flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-          >
-            <ImageIcon size={19} />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -4299,11 +3975,90 @@ function NavButton({ icon: Icon, label, active, onClick }: { icon: any, label: s
   );
 }
 
+interface SortableCategoryItemProps {
+  category: Category;
+  onClick: () => void;
+}
+
+function SortableCategoryItem({ category, onClick }: SortableCategoryItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center justify-start cursor-pointer select-none group transition-all duration-150 py-1",
+        isDragging && "opacity-40 scale-105"
+      )}
+    >
+      {/* Circular icon container exactly matching reference image */}
+      <div className={cn(
+        "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--dash-card)] border border-[var(--dash-border)]/80 flex items-center justify-center p-1 shadow-lg group-hover:border-indigo-500/60 group-hover:scale-105 active:scale-95 transition-all relative overflow-hidden",
+        isDragging && "ring-2 ring-indigo-500 ring-offset-2 ring-offset-[var(--dash-bg)] shadow-indigo-500/20"
+      )}>
+        {category.icon ? (
+          <img 
+            src={category.icon} 
+            alt={category.name} 
+            className="w-full h-full object-cover rounded-full pointer-events-none" 
+          />
+        ) : (
+          <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500/15 to-purple-500/15 flex items-center justify-center text-indigo-400 font-bold text-lg sm:text-xl">
+            {category.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      {/* Category Name under the circle */}
+      <span className="text-[11px] sm:text-xs font-medium text-white/90 group-hover:text-indigo-400 transition-colors text-center mt-2.5 truncate w-full px-0.5 tracking-tight">
+        {category.name}
+      </span>
+    </div>
+  );
+}
+
 function CategoriesManager({ categories, setCategories, onClose, themePrimary }: { categories: Category[], setCategories: React.Dispatch<React.SetStateAction<Category[]>>, onClose: () => void, themePrimary?: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   
   const scrollRef = useScrollRestore('dashboard-categories');
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = categories.findIndex(c => c.id === active.id);
+      const newIndex = categories.findIndex(c => c.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const updated = arrayMove(categories, oldIndex, newIndex);
+        setCategories(updated);
+        cloudStore.saveSetting('categories', updated).catch(console.error);
+      }
+    }
+  };
 
   const handleSave = (category: Category) => {
     let updated: Category[];
@@ -4328,64 +4083,55 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
 
   return (
     <div className="fixed inset-0 z-[100] bg-[var(--dash-bg)] text-[#e2e8f0] flex flex-col font-sans overflow-hidden md:left-[334px]">
-      {/* Top Bar */}
+      {/* Top Bar matching reference screenshot */}
       <div className="border-b border-[var(--dash-border)]/70 bg-[var(--dash-bg)]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
-        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-2.5 py-3 md:px-8 md:py-4">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={onClose} 
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-              title="Go back"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-                <LayoutGrid size={20} />
-              </div>
-              <div>
-                <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Category Management</h1>
-                <p className="text-[11px] text-slate-400 font-medium hidden sm:block">Organize products into intuitive collections and groups</p>
-              </div>
-            </div>
-          </div>
-
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between px-3 py-3.5 md:px-8 md:py-4">
           <button 
-            onClick={() => { setEditingCategory(null); setIsEditing(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 cursor-pointer"
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl hover:bg-white/5 active:scale-95 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
           >
-            <Plus size={16} /> Add Category
+            <ChevronLeft size={24} />
           </button>
+          
+          <h1 className="text-base md:text-lg font-bold text-white tracking-tight">Categories</h1>
+
+          <div className="w-10 shrink-0" />
         </div>
       </div>
 
-      {/* Categories Grid */}
+      {/* Main Container */}
       <div 
         ref={scrollRef} 
-        className="flex-1 overflow-y-auto p-2.5 md:p-8 overscroll-y-contain custom-scrollbar pb-32"
+        className="flex-1 overflow-y-auto p-4 md:p-8 overscroll-y-contain custom-scrollbar pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="max-w-4xl mx-auto w-full space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
-            {categories.map(cat => (
-              <div 
-                key={cat.id} 
-                className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 cursor-pointer group hover:border-indigo-500/50 transition-all shadow-xl active:scale-95"
-                onClick={() => { setEditingCategory(cat); setIsEditing(true); }}
-              >
-                <div className="w-16 h-16 rounded-2xl bg-[var(--dash-bg)] border border-[var(--dash-border)] flex items-center justify-center overflow-hidden group-hover:border-indigo-500/50 transition-all shadow-inner relative">
-                  {cat.icon ? (
-                    <img src={cat.icon} alt={cat.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-indigo-400 font-bold text-xl">{cat.name.charAt(0)}</span>
-                  )}
-                </div>
-                <div className="text-center">
-                  <span className="text-xs md:text-sm font-bold text-white group-hover:text-indigo-400 transition-colors line-clamp-1">{cat.name}</span>
-                </div>
-              </div>
-            ))}
+        <div className="max-w-4xl mx-auto w-full space-y-6">
+          {/* + Add New button matching reference screenshot */}
+          <div>
+            <button 
+              onClick={() => { setEditingCategory(null); setIsEditing(true); }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-[var(--dash-card)] border border-[var(--dash-border)] hover:bg-[var(--dash-border)] active:scale-95 transition-all shadow-sm cursor-pointer"
+            >
+              <Plus size={16} />
+              <span>Add New</span>
+            </button>
           </div>
+
+          {/* Categories Grid with Drag and Drop */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={categories.map(c => c.id)} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-x-3 sm:gap-x-5 gap-y-6 pt-2">
+                {categories.map(cat => (
+                  <SortableCategoryItem 
+                    key={cat.id} 
+                    category={cat} 
+                    onClick={() => { setEditingCategory(cat); setIsEditing(true); }} 
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {categories.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-[var(--dash-card)] rounded-2xl border border-dashed border-[var(--dash-border)]">
@@ -4393,7 +4139,7 @@ function CategoriesManager({ categories, setCategories, onClose, themePrimary }:
                 <LayoutGrid size={22} />
               </div>
               <p className="text-white font-bold text-sm">No categories created yet</p>
-              <p className="text-xs text-slate-500 mt-1">Click "Add Category" to create your first collection</p>
+              <p className="text-xs text-slate-500 mt-1">Click "+ Add New" to create your first collection</p>
             </div>
           )}
         </div>
@@ -4444,76 +4190,90 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/70 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
-        <div className="p-4 md:p-6 border-b border-[var(--dash-border)]/40 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={onClose} 
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
-              {category ? 'Edit Category' : 'New Category'}
-            </h2>
-          </div>
-          {onDelete && (
+    <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header matching reference screenshot 3 */}
+        <div className="px-4 py-4 md:px-6 border-b border-[var(--dash-border)]/40 flex items-center justify-between bg-[var(--dash-bg)]/40">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-xl hover:bg-white/5 active:scale-95 flex items-center justify-center text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer"
+            title="Go back"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          
+          <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
+            {category ? 'Edit Category' : 'New Category'}
+          </h2>
+
+          {onDelete ? (
             <button 
               onClick={onDelete}
-              className="w-10 h-10 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-xl text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-colors cursor-pointer"
               title="Delete Category"
             >
-              <Trash2 size={16} />
+              <Trash2 size={20} />
             </button>
+          ) : (
+            <div className="w-10 shrink-0" />
           )}
         </div>
 
+        {/* Form Body matching reference screenshot 3 */}
         <div 
-          className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4 max-w-xl mx-auto w-full overscroll-y-contain pb-28"
+          className="p-4 md:p-6 flex-1 overflow-y-auto space-y-4 max-w-lg mx-auto w-full overscroll-y-contain pb-6"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="bg-[var(--dash-bg)] border border-[var(--dash-border)] rounded-2xl p-4 md:p-5 shadow-xl space-y-4">
+          <div className="bg-[var(--dash-bg)]/60 border border-[var(--dash-border)]/90 rounded-2xl p-4 sm:p-6 shadow-xl space-y-5">
+            {/* Title field */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">Category Title *</label>
+              <label className="text-xs font-semibold text-rose-400 flex items-center gap-1 mb-2">
+                <span>Title</span>
+                <span className="text-rose-500">*</span>
+              </label>
               <input 
                 type="text" 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Traditional Jewelry"
-                className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl px-3.5 py-3 text-xs md:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                placeholder="e.g. Necklace"
+                className="w-full bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                autoFocus
               />
-              <div className="text-[11px] text-slate-500 mt-1.5 font-mono truncate">
-                https://paikarix.com/c/{name.toLowerCase().replace(/\s+/g, '-')}
+              <div className="text-[11px] text-gray-500 font-mono mt-1.5 truncate">
+                https://paikarix.com/c/{name ? slugify(name) : 'category'}
               </div>
             </div>
 
+            {/* Icon field */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 block">Icon / Thumbnail</label>
-              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)] rounded-xl p-4 flex items-center justify-start gap-4">
+              <label className="text-xs font-semibold text-gray-300 mb-2 block">Icon (optional)</label>
+              <div className="bg-[var(--dash-card)] border border-[var(--dash-border)]/80 rounded-xl p-4 min-h-[120px] flex items-center">
                 {icon ? (
                   <div className="relative inline-block">
-                    <img src={icon} alt="Preview" className="w-20 h-20 object-cover rounded-xl bg-white/5 border border-[var(--dash-border)]" />
+                    <img 
+                      src={icon} 
+                      alt="Category Icon Preview" 
+                      className="w-24 h-24 object-cover rounded-2xl border border-[var(--dash-border)] shadow-md" 
+                    />
                     <button 
+                      type="button"
                       onClick={() => setIcon('')}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 shadow-md cursor-pointer"
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 hover:bg-rose-600 rounded-full flex items-center justify-center text-white shadow-md active:scale-90 transition-transform cursor-pointer"
+                      title="Remove icon"
                     >
-                      <X size={12} />
+                      <X size={12} strokeWidth={2.5} />
                     </button>
                   </div>
                 ) : (
                   <button 
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-20 h-20 border-2 border-dashed border-[var(--dash-border)] hover:border-indigo-500 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    className="w-24 h-24 border-2 border-dashed border-[var(--dash-border)] hover:border-indigo-500 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer bg-[var(--dash-bg)]/40 group"
                   >
-                    <ImageIcon size={20} className="mb-1" />
-                    <span className="text-[10px] font-bold">Upload</span>
+                    <Upload size={22} className="mb-1 text-gray-400 group-hover:text-indigo-400 transition-colors" />
+                    <span className="text-[11px] font-bold">Upload</span>
                   </button>
                 )}
-                <div className="text-xs text-slate-400">
-                  <p className="font-semibold text-white">Category Image</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Recommended 400x400 JPG or PNG</p>
-                </div>
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -4524,12 +4284,14 @@ function CategoryEditorModal({ category, onSave, onClose, onDelete, themePrimary
               </div>
             </div>
 
+            {/* Submit button */}
             <button 
+              type="button"
               onClick={handleSave}
               disabled={!name.trim()}
-              className="w-full py-3 rounded-xl font-bold text-xs md:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25 cursor-pointer"
+              className="w-full py-3.5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-600/20 cursor-pointer mt-4"
             >
-              {category ? 'Save Changes' : 'Create Category'}
+              {category ? 'Update' : 'Create Category'}
             </button>
           </div>
         </div>

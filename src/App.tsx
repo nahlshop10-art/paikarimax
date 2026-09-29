@@ -1609,17 +1609,15 @@ export default function App() {
           <div className="flex overflow-x-auto no-scrollbar pt-2 pb-2 px-2 gap-1 lg:py-3 lg:gap-2 bg-[var(--store-bg)]">
             <button 
               onClick={() => handleCategoryChange('All')} 
-              className="shrink-0 flex items-center flex-col gap-1.5 w-[72px] xl:w-[88px] focus:outline-none"
+              className="shrink-0 flex flex-col items-center gap-1 lg:gap-2 min-w-fit focus:outline-none"
             >
               <div className={cn(
-                "w-16 h-16 xl:w-20 xl:h-20 rounded-full flex items-center justify-center bg-white shadow-sm overflow-hidden transition-all",
-                activeCategory === 'All' 
-                  ? "border-2 border-[var(--theme-primary)]" 
-                  : "border border-[#f1e4d5] hover:bg-stone-50"
+                "w-14 h-14 rounded-full flex items-center justify-center text-[var(--theme-white)] transition-all bg-[var(--theme-black)]", 
+                activeCategory === 'All' ? "ring-2 ring-offset-2 ring-[var(--theme-primary)]" : ""
               )}>
-                <LayoutGrid className={cn("w-7 h-7 xl:w-9 xl:h-9 transition-colors", activeCategory === 'All' ? "text-[var(--theme-primary)]" : "text-stone-700")} />
+                <LayoutGrid size={24} />
               </div>
-              <span className={cn("text-xs text-center px-0.5 truncate max-w-full leading-tight transition-colors", activeCategory === 'All' ? "text-[var(--theme-black)] font-bold" : "text-stone-500 font-semibold")}>
+              <span className={cn("text-xs font-medium", activeCategory === 'All' ? "text-[var(--theme-black)]" : "text-gray-500")}>
                 All
               </span>
             </button>

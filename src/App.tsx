@@ -1606,25 +1606,54 @@ export default function App() {
           )}
 
           {/* Category Nav */}
-          <div className="flex overflow-x-auto no-scrollbar pt-3 pb-2 px-2 gap-2 lg:py-3 lg:gap-3 bg-[var(--store-bg)]">
-            <button onClick={() => handleCategoryChange('All')} className="flex flex-col items-center gap-1 lg:gap-2 min-w-fit">
-              <div className={cn("w-14 h-14 rounded-full flex items-center justify-center text-[var(--theme-white)] transition-all bg-[var(--theme-black)]", activeCategory === 'All' ? "ring-2 ring-offset-2 ring-[var(--theme-primary)]" : "")}>
-                <LayoutGrid size={24} />
+          <div className="flex overflow-x-auto no-scrollbar pt-2 pb-2 px-2 gap-1 lg:py-3 lg:gap-2 bg-[var(--store-bg)]">
+            <button 
+              onClick={() => handleCategoryChange('All')} 
+              className="shrink-0 flex items-center flex-col gap-1.5 w-[72px] xl:w-[88px] focus:outline-none"
+            >
+              <div className={cn(
+                "w-16 h-16 xl:w-20 xl:h-20 rounded-full flex items-center justify-center bg-white shadow-sm overflow-hidden transition-all",
+                activeCategory === 'All' 
+                  ? "border-2 border-[var(--theme-primary)]" 
+                  : "border border-[#f1e4d5] hover:bg-stone-50"
+              )}>
+                <LayoutGrid className={cn("w-7 h-7 xl:w-9 xl:h-9 transition-colors", activeCategory === 'All' ? "text-[var(--theme-primary)]" : "text-stone-700")} />
               </div>
-              <span className={cn("text-xs font-medium", activeCategory === 'All' ? "text-[var(--theme-black)]" : "text-gray-500")}>All</span>
+              <span className={cn("text-xs text-center px-0.5 truncate max-w-full leading-tight transition-colors", activeCategory === 'All' ? "text-[var(--theme-black)] font-bold" : "text-stone-500 font-semibold")}>
+                All
+              </span>
             </button>
             {activeCategoriesWithIcons.map(cat => {
               const isActive = activeCategory === cat.name;
               return (
-                <button key={cat.id} onClick={() => handleCategoryChange(cat.name)} className="flex flex-col items-center gap-1 lg:gap-2 min-w-fit">
-                  <div className={cn("w-14 h-14 rounded-full flex items-center justify-center text-[var(--theme-white)] transition-all bg-[var(--theme-black)] overflow-hidden relative", isActive ? "ring-2 ring-offset-2 ring-[var(--theme-primary)]" : "")}>
+                <button 
+                  key={cat.id} 
+                  onClick={() => handleCategoryChange(cat.name)} 
+                  className="shrink-0 flex items-center flex-col gap-1.5 w-[72px] xl:w-[88px] focus:outline-none"
+                >
+                  <div className={cn(
+                    "w-16 h-16 xl:w-20 xl:h-20 rounded-full flex items-center justify-center bg-white shadow-sm overflow-hidden transition-all",
+                    isActive 
+                      ? "border-2 border-[var(--theme-primary)]" 
+                      : "border border-[#f1e4d5] hover:bg-stone-50"
+                  )}>
                     {cat.displayIcon ? (
-                      <img src={cat.displayIcon} alt={cat.name} className="w-full h-full object-cover" />
+                      <img 
+                        src={cat.displayIcon} 
+                        alt={cat.name} 
+                        className="w-14 h-14 xl:w-18 xl:h-18 object-cover rounded-full" 
+                        loading="lazy" 
+                        decoding="async" 
+                      />
                     ) : (
-                      <span className="text-xl font-bold text-[var(--theme-white)]">{cat.name.charAt(0)}</span>
+                      <div className="w-14 h-14 xl:w-18 xl:h-18 rounded-full bg-stone-100 flex items-center justify-center text-stone-700 font-bold text-base xl:text-lg">
+                        {cat.name.charAt(0)}
+                      </div>
                     )}
                   </div>
-                  <span className={cn("text-xs font-medium", isActive ? "text-[var(--theme-black)]" : "text-gray-500")}>{cat.name}</span>
+                  <span className={cn("text-xs text-center px-0.5 truncate max-w-full leading-tight transition-colors", isActive ? "text-[var(--theme-black)] font-bold" : "text-stone-500 font-semibold")}>
+                    {cat.name}
+                  </span>
                 </button>
               );
             })}

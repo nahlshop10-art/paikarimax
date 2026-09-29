@@ -1439,7 +1439,7 @@ export default function App() {
   } as React.CSSProperties;
 
   const currentLogoHeight = websiteSettings?.logoHeight || 46;
-  const headerMinHeight = websiteSettings?.logoUrl ? Math.max(56, currentLogoHeight + 14) : 56;
+  const headerMinHeight = websiteSettings?.logoUrl ? Math.max(50, currentLogoHeight + 4) : 50;
 
   return (
     <div style={themeVars} className="contents main-storefront">
@@ -1494,13 +1494,13 @@ export default function App() {
             />
           ) : (
             <div 
-              style={{ paddingTop: `${headerMinHeight + 6}px` }}
+              style={{ paddingTop: `${headerMinHeight + 2}px` }}
               className="min-h-screen bg-[var(--store-bg)] pb-24 font-sans text-[var(--theme-black)] w-full"
             >
               {/* Header */}
               <header 
                 style={{ minHeight: `${headerMinHeight}px` }}
-                className="flex items-center justify-between px-2 md:px-4 py-2 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all"
+                className="flex items-center justify-between px-2 md:px-4 py-0.5 sm:py-1 bg-[var(--theme-white)] fixed top-0 left-0 right-0 lg:right-[320px] xl:right-[360px] w-full lg:w-auto z-40 shadow-sm transition-all"
               >
                 <div className="flex items-center gap-2 z-10">
                   <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-[var(--theme-black)]">

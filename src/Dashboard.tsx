@@ -4522,14 +4522,7 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
         return;
       }
 
-      // If raster file is under 2MB and already webp/png/jpg, upload directly to preserve transparency
-      if (file.size <= 2 * 1024 * 1024) {
-        const url = await cloudStore.uploadFile(file, `logo_${Date.now()}_${cleanName}`);
-        setDraftSettings(prev => ({ ...prev, logoUrl: url }));
-        return;
-      }
-
-      // If oversized raster image (>2MB), compress to crisp WebP preserving aspect ratio and alpha channel
+      // Auto-trim empty whitespace on canvas and export crisp WebP
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new window.Image();
@@ -4549,24 +4542,69 @@ function WebsiteManager({ settings, setSettings, onClose }: { settings: WebsiteS
           const canvas = document.createElement('canvas');
           canvas.width = w;
           canvas.height = h;
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
           if (ctx) {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, w, h);
           }
-          canvas.toBlob(async (blob) => {
+
+          // Crop out transparent or white empty padding around logo bounds
+          let finalCanvas = canvas;
+          try {
+            if (ctx) {
+              const imgData = ctx.getImageData(0, 0, w, h);
+              const data = imgData.data;
+              let minX = w, minY = h, maxX = 0, maxY = 0;
+              let hasPixels = false;
+              for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                  const idx = (y * w + x) * 4;
+                  const a = data[idx + 3];
+                  const r = data[idx];
+                  const g = data[idx + 1];
+                  const b = data[idx + 2];
+                  if (a > 20 && (r < 240 || g < 240 || b < 240)) {
+                    hasPixels = true;
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                  }
+                }
+              }
+              if (hasPixels && maxX > minX && maxY > minY) {
+                const pad = 2;
+                const cropX = Math.max(0, minX - pad);
+                const cropY = Math.max(0, minY - pad);
+                const cropW = Math.min(w - cropX, (maxX - minX + 1) + pad * 2);
+                const cropH = Math.min(h - cropY, (maxY - minY + 1) + pad * 2);
+                const trimmed = document.createElement('canvas');
+                trimmed.width = cropW;
+                trimmed.height = cropH;
+                const trimmedCtx = trimmed.getContext('2d');
+                if (trimmedCtx) {
+                  trimmedCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                  finalCanvas = trimmed;
+                }
+              }
+            }
+          } catch (cropErr) {
+            console.warn('Logo crop skipped:', cropErr);
+          }
+
+          finalCanvas.toBlob(async (blob) => {
             if (blob) {
               try {
                 const url = await cloudStore.uploadFile(blob, `logo_${Date.now()}.webp`);
                 setDraftSettings(prev => ({ ...prev, logoUrl: url }));
               } catch {
-                const dataUrl = canvas.toDataURL('image/webp', 0.9);
+                const dataUrl = finalCanvas.toDataURL('image/webp', 0.95);
                 setDraftSettings(prev => ({ ...prev, logoUrl: dataUrl }));
               }
             }
             setIsUploadingLogo(false);
-          }, 'image/webp', 0.9);
+          }, 'image/webp', 0.95);
         };
         img.onerror = () => {
           setIsUploadingLogo(false);
